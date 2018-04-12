@@ -1,8 +1,9 @@
 package com.chunkserver;
 
-import java.io.BufferedWriter;
+import java.io.BufferedWriter; 
 import java.io.EOFException;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -10,6 +11,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Scanner;
 import java.util.Vector;
 
 import com.client.RID;
@@ -22,127 +24,69 @@ import com.interfaces.ChunkServerInterface;
  */
 
 public class ChunkServer implements ChunkServerInterface {
-	final static String filePath = "csci485/";	//or C:\\newfile.txt
+//	final static String filePath = "csci485/"; // For Windows
+	final static String filePath = "/Users/Nandhini/Documents/CSCI485/NewFiles/"; // For Nandhini's Mac
 	final static String portFilePath = "port.txt";
 	public static long counter;
-	
-	//default path
-	public static int port = 5656; 
-	private static ServerSocket ss;
-	
-	public static void main(String[] args) {		
-		ChunkServer cs = new ChunkServer(); 
-		ss = null;
-		boolean isPortNotFoundIssue = true;
-		try {
-			ss = new ServerSocket(port);
-			Socket s; 
-			
-			//write 5656 to file 
-			File portFile = new File(portFilePath);
-			try {
-				if (portFile.createNewFile()) {
-					counter = 0; 
-					BufferedWriter out = new BufferedWriter(new FileWriter(portFile)); 
-					out.write("" + port); 
-					out.close();
-				}	else {
-					BufferedWriter out = new BufferedWriter(new FileWriter(portFile, false)); 
-					out.write("" + port); 
-					out.close();
-				}			
-			} catch (IOException ioe) {
-				System.out.println("IOException: " + ioe.getMessage()); 
-			}
-			
-			//from here on out ioexception isn't because a port wasn't found 
-			isPortNotFoundIssue = false;
-			System.out.println("waiting for connection at port " + port + "...");  
-			Vector<ServerThread> threads = new Vector<ServerThread>(); 
-			//if any client tries to connect to the port, accept it 
-			while (true) {
-				s = ss.accept();
-				System.out.println("Accepted");
-				System.out.println("connection from " + s.getInetAddress() + ":" + s.getPort());
-				ServerThread st = new ServerThread(s, cs);
-				threads.add(st); 
-			}
-		} catch (EOFException eof) {
-			System.out.println("UnitTest Closed"); 
-		} catch (IOException ioe) {
-			//if a port could not be found 
-			if (isPortNotFoundIssue) {
-				//increment port number by one until one is free
-				int currPort = port + 1;
-				boolean foundPort = false;
-				while (!foundPort) {
-					try {
-						ss = new ServerSocket(currPort);
-						foundPort = true;
-						System.out.println("finally got a spot on port " + currPort);
-					} catch (IOException ioe2) {
-						//keep incrementing port number by 1 till you don't enter catch block
-						currPort++;
-						System.out.println("still stuck on occupied port");
-					}
-				}
-				
-				//write port number to file
-				File portFile = new File(portFilePath);
-				try {
-					if (portFile.createNewFile()) {
-						counter = 0; 
-						BufferedWriter out = new BufferedWriter(new FileWriter(portFile)); 
-						out.write("" + currPort); 
-						out.close();
-					}	else {
-						BufferedWriter out = new BufferedWriter(new FileWriter(portFile, false)); 
-						out.write("" + currPort); 
-						out.close();
-					}			
-				} catch (IOException ioe2) {
-					System.out.println("IOException: " + ioe2.getMessage()); 
-				}
-				
-				try {
-					Socket s; 	
-					System.out.println("waiting for connection at port " + currPort + "...");  
-					Vector<ServerThread> threads = new Vector<ServerThread>(); 
-					
-					//if any clients try to connect to the server socket accept the connection
-					while (true) {
-						s = ss.accept();
-						System.out.println("Accepted");
-						System.out.println("connection from " + s.getInetAddress() + ":" + s.getPort());
-						ServerThread st = new ServerThread(s, cs);
-						threads.add(st); 
-					}
-				} catch (EOFException eof) {
-					System.out.println("UnitTest closed");
-				} catch (IOException ioe2) {
-					System.out.println("IOException: " + ioe2.getMessage());
-				}
-			}
-		} 
-	}
 	
 	/**
 	 * Initialize the chunk server
 	 */
 	public ChunkServer(){
-		ss = null; 
-		File dir = new File(filePath);
-		File[] fs = dir.listFiles();
-
-		if(fs.length == 0){
+		ServerSocket ss; 
+		boolean havePort = false;
+		int port = 5858;
+		
+		// Check if a metadata file exists and read counter from it
+		File metadata = new File(filePath+"metadata.txt");
+		Scanner scanner;
+		try {
+			scanner = new Scanner(metadata);
+			while(scanner.hasNext())
+			{
+				counter = scanner.nextInt();
+			}
+			scanner.close();
+		} catch (FileNotFoundException e) {
 			counter = 0;
-		}else{
-			long[] cntrs = new long[fs.length];
-			for (int j=0; j < cntrs.length; j++)
-				cntrs[j] = Long.valueOf( fs[j].getName() ); 
-			
-			Arrays.sort(cntrs);
-			counter = cntrs[cntrs.length - 1];
+			// If the file doesn't exist, create it
+			BufferedWriter writer;
+			try {
+				writer = new BufferedWriter(new FileWriter(filePath+"metadata.txt"));
+				writer.write(""+counter);
+			    writer.close();
+			} catch (IOException e1) {
+				e1.printStackTrace();
+			}
+		}
+		
+		// Try to connect to a port
+		while(!havePort)
+		{
+			try
+			{
+				ss = new ServerSocket(port);
+				
+				// Write port number out to file
+				BufferedWriter writer;
+				try {
+					writer = new BufferedWriter(new FileWriter(filePath+"port.txt"));
+					writer.write(""+port);
+				    writer.close();
+				} catch (IOException e1) {
+					e1.printStackTrace();
+				}
+				
+				// Loop to accept connections
+				while(true) {
+					Socket s = ss.accept();
+					ChunkThread ct = new ChunkThread(s, this);
+				}
+			}
+			catch (IOException ioe)
+			{
+				port++;
+			}
 		}
 	}
 	
@@ -152,6 +96,17 @@ public class ChunkServer implements ChunkServerInterface {
 	 */
 	public String initializeChunk() {
 		counter++;
+		
+		// Write to metadata file
+		BufferedWriter out = null;
+		try {
+			out = new BufferedWriter(new FileWriter(filePath+"metadata.txt"));
+			out.write(""+counter);
+			out.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
 		String chunkHandle = String.valueOf(counter); 
 		try {
 			RandomAccessFile raf = new RandomAccessFile(filePath + chunkHandle, "rw"); 
@@ -175,6 +130,7 @@ public class ChunkServer implements ChunkServerInterface {
 		} catch (IOException ex) {
 			
 		}	
+		
 		return String.valueOf(counter);
 	}
 	
@@ -379,5 +335,12 @@ public class ChunkServer implements ChunkServerInterface {
 			int intSize = ByteBuffer.wrap(size).getInt(); 
 			return getChunk(ChunkHandle, intOffset+4, intSize); 
 		}
+	}
+	
+	/** Main function **/
+	public static void main(String [] args) {
+		// Put new ServerSocket() in a while loop incrementing by 1 in catch until 
+		// it binds. Write the port number into a file that client can read from
+		ChunkServer cs = new ChunkServer();
 	}
 }
