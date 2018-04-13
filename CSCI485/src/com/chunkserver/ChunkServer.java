@@ -80,7 +80,7 @@ public class ChunkServer implements ChunkServerInterface {
 				// Loop to accept connections
 				while(true) {
 					Socket s = ss.accept();
-					ChunkThread ct = new ChunkThread(s, this);
+					ServerThread ct = new ServerThread(s, this);
 				}
 			}
 			catch (IOException ioe)
