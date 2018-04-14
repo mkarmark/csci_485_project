@@ -1,6 +1,13 @@
 package com.client;
 
+import java.util.Vector;
+
+import com.chunkserver.ChunkServer;
+import com.master.Master;
+
 public class ClientFS {
+	// TODO: Remove when networking
+	public static Master ms = new Master();
 
 	public enum FSReturnVals {
 		DirExists, // Returned by CreateDir when directory exists
@@ -27,6 +34,17 @@ public class ClientFS {
 	 * "CSCI485"), CreateDir("/Shahram/CSCI485/", "Lecture1")
 	 */
 	public FSReturnVals CreateDir(String src, String dirname) {
+		int error = ms.CreateDir(src, dirname);
+		switch(error)
+		{
+			case 0:
+				return FSReturnVals.Success;
+			case -1:
+				return FSReturnVals.SrcDirNotExistent;
+			case -2:
+				return FSReturnVals.DirExists;
+		}
+		
 		return null;
 	}
 
@@ -38,6 +56,20 @@ public class ClientFS {
 	 * Example usage: DeleteDir("/Shahram/CSCI485/", "Lecture1")
 	 */
 	public FSReturnVals DeleteDir(String src, String dirname) {
+		int error = ms.DeleteDir(src, dirname);
+		
+		switch(error)
+		{
+			case 0:
+				return FSReturnVals.Success;
+			case -1:
+				return FSReturnVals.SrcDirNotExistent;
+			case -2:
+				return FSReturnVals.Fail;
+			case -3:
+				return FSReturnVals.DirNotEmpty;
+		}
+		
 		return null;
 	}
 
@@ -50,6 +82,17 @@ public class ClientFS {
 	 * "/Shahram/CSCI485" to "/Shahram/CSCI550"
 	 */
 	public FSReturnVals RenameDir(String src, String NewName) {
+		int error = ms.RenameDir(src, NewName);
+		
+		switch(error)
+		{
+			case 0:
+				return FSReturnVals.Success;
+			case -1:
+				return FSReturnVals.SrcDirNotExistent;
+			case -2:
+				return FSReturnVals.DestDirExists;
+		}
 		return null;
 	}
 
@@ -61,7 +104,29 @@ public class ClientFS {
 	 * Example usage: ListDir("/Shahram/CSCI485")
 	 */
 	public String[] ListDir(String tgt) {
-		return null;
+		Vector<String> results = ms.ListDir(tgt);
+		
+		// If it's empty, return null
+		if(results.isEmpty())
+		{
+			return null;
+		}
+		
+		// If the tgt doesn't exist, return the error
+		if(results.get(0).equals("DNE"))
+		{
+			// TODO: Return FSReturnVals.SrcDirNotExistent
+			return (new String[0]);
+		}
+		
+		// Turn the vector into a String[] to return
+		String[] list = new String[results.size()];
+		for(int i=0; i<results.size(); i++)
+		{
+			list[i] = results.get(i);
+		}
+		
+		return list;
 	}
 
 	/**
@@ -72,6 +137,17 @@ public class ClientFS {
 	 * Example usage: Createfile("/Shahram/CSCI485/Lecture1/", "Intro.pptx")
 	 */
 	public FSReturnVals CreateFile(String tgtdir, String filename) {
+		int error = ms.CreateFile(tgtdir, filename);
+		
+		switch(error)
+		{
+			case 0:
+				return FSReturnVals.Success;
+			case -1:
+				return FSReturnVals.SrcDirNotExistent;
+			case -2:
+				return FSReturnVals.FileExists;
+		}
 		return null;
 	}
 
@@ -83,6 +159,17 @@ public class ClientFS {
 	 * Example usage: DeleteFile("/Shahram/CSCI485/Lecture1/", "Intro.pptx")
 	 */
 	public FSReturnVals DeleteFile(String tgtdir, String filename) {
+		int error = ms.DeleteFile(tgtdir, filename);
+		
+		switch(error)
+		{
+			case 0:
+				return FSReturnVals.Success;
+			case -1:
+				return FSReturnVals.SrcDirNotExistent;
+			case -2:
+				return FSReturnVals.FileDoesNotExist;
+		}
 		return null;
 	}
 
@@ -94,7 +181,19 @@ public class ClientFS {
 	 * Example usage: OpenFile("/Shahram/CSCI485/Lecture1/Intro.pptx", FH1)
 	 */
 	public FSReturnVals OpenFile(String FilePath, FileHandle ofh) {
-		return null;
+		// Get filehandle of file
+		FileHandle newfh = ms.OpenFile(FilePath);
+		
+		
+		ofh.setChunks(newfh.getChunks());
+		ofh.setFilepath(newfh.getFilepath());
+		
+		if(ofh==null)
+		{
+			return FSReturnVals.FileDoesNotExist;
+		}
+		
+		return FSReturnVals.Success;
 	}
 
 	/**
@@ -103,6 +202,11 @@ public class ClientFS {
 	 * Example usage: CloseFile(FH1)
 	 */
 	public FSReturnVals CloseFile(FileHandle ofh) {
+		if(!ms.HasFilepath(ofh.getFilepath()))
+		{
+			return FSReturnVals.BadHandle;
+		}
+		
 		return null;
 	}
 
