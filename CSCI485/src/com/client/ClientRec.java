@@ -2,9 +2,12 @@ package com.client;
 
 import java.nio.ByteBuffer;
 
+import com.chunkserver.ChunkServer;
 import com.client.ClientFS.FSReturnVals;
 
 public class ClientRec {
+	
+	public static ChunkServer cs = new ChunkServer();
 
 	/**
 	 * Appends a record to the open file as specified by ofh Returns BadHandle
@@ -15,6 +18,27 @@ public class ClientRec {
 	 * Example usage: AppendRecord(FH1, obama, RecID1)
 	 */
 	public FSReturnVals AppendRecord(FileHandle ofh, byte[] payload, RID RecordID) {
+		// If specified record ID is not null, return BadRecID
+		if(RecordID.getSlotNumber()!=-1)
+		{
+			return FSReturnVals.BadRecID;
+		}
+		
+		// TODO: Check if the filehandle is bad
+		
+		// Get record ID of appended record
+		RID appendedRID = cs.appendRecord(ofh.getLastChunk(), payload);
+		
+		// Deep copy into RecordID
+		RecordID.setChunkHandle(appendedRID.getChunkHandle());
+		RecordID.setSlotNumber(appendedRID.getSlotNumber());
+		
+		// If a new chunk had to be created, add that to ofh
+		if(!RecordID.getChunkHandle().equals(ofh.getLastChunk()))
+		{
+			ofh.appendChunk(RecordID.getChunkHandle());
+		}
+		
 		return null;
 	}
 
@@ -27,6 +51,9 @@ public class ClientRec {
 	 * Example usage: DeleteRecord(FH1, RecID1)
 	 */
 	public FSReturnVals DeleteRecord(FileHandle ofh, RID RecordID) {
+		// TODO: Check if RecordID is valid
+		// TODO: Check if ofh is valid
+		cs.deleteRecord(RecordID);
 		return null;
 	}
 
@@ -37,6 +64,20 @@ public class ClientRec {
 	 * Example usage: ReadFirstRecord(FH1, tinyRec)
 	 */
 	public FSReturnVals ReadFirstRecord(FileHandle ofh, TinyRec rec){
+		// TODO: Return badhandle if ofh is invalid
+		
+		// Read first record from chunkserver
+		byte[] payload = cs.readFirstRecord(ofh.getFirstChunk());
+		
+		if(payload == null)
+		{
+			return FSReturnVals.RecDoesNotExist;
+		}
+		
+		// TODO: ReadFirstRecord is supposed to set the RID of TinyRec
+		// Set the TinyRec Payload
+		rec.setPayload(payload);
+		
 		return null;
 	}
 
@@ -47,6 +88,19 @@ public class ClientRec {
 	 * Example usage: ReadLastRecord(FH1, tinyRec)
 	 */
 	public FSReturnVals ReadLastRecord(FileHandle ofh, TinyRec rec){
+		// TODO: Return badhandle if ofh is invalid
+
+		// Read last record from chunkserver
+		byte[] payload = cs.readLastRecord(ofh.getLastChunk());
+		
+		if(payload == null)
+		{
+			return FSReturnVals.RecDoesNotExist;
+		}
+		
+		// Set the TinyRec Payload
+		rec.setPayload(payload);
+		
 		return null;
 	}
 
@@ -59,6 +113,19 @@ public class ClientRec {
 	 * rec1, tinyRec2) 3. ReadNextRecord(FH1, rec2, tinyRec3)
 	 */
 	public FSReturnVals ReadNextRecord(FileHandle ofh, RID pivot, TinyRec rec){
+		// TODO: Return badhandle if ofh is invalid
+
+		// Read next record from chunkserver
+		byte[] payload = cs.readNextRecord(pivot);
+		
+		if(payload == null)
+		{
+			return FSReturnVals.RecDoesNotExist;
+		}
+		
+		// Set the TinyRec Payload
+		rec.setPayload(payload);
+		
 		return null;
 	}
 
@@ -71,6 +138,19 @@ public class ClientRec {
 	 * recn-1, tinyRec2) 3. ReadPrevRecord(FH1, recn-2, tinyRec3)
 	 */
 	public FSReturnVals ReadPrevRecord(FileHandle ofh, RID pivot, TinyRec rec){
+		// TODO: Return badhandle if ofh is invalid
+
+		// Read previous record from chunkserver
+		byte[] payload = cs.readPrevRecord(pivot);
+		
+		if(payload == null)
+		{
+			return FSReturnVals.RecDoesNotExist;
+		}
+		
+		// Set the TinyRec Payload
+		rec.setPayload(payload);
+		
 		return null;
 	}
 

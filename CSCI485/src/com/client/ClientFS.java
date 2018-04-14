@@ -89,7 +89,6 @@ public class ClientFS {
 			case 0:
 				return FSReturnVals.Success;
 			case -1:
-				System.out.println("Fail here");
 				return FSReturnVals.SrcDirNotExistent;
 			case -2:
 				return FSReturnVals.DestDirExists;
@@ -138,6 +137,17 @@ public class ClientFS {
 	 * Example usage: Createfile("/Shahram/CSCI485/Lecture1/", "Intro.pptx")
 	 */
 	public FSReturnVals CreateFile(String tgtdir, String filename) {
+		int error = ms.CreateFile(tgtdir, filename);
+		
+		switch(error)
+		{
+			case 0:
+				return FSReturnVals.Success;
+			case -1:
+				return FSReturnVals.SrcDirNotExistent;
+			case -2:
+				return FSReturnVals.FileExists;
+		}
 		return null;
 	}
 
@@ -149,6 +159,17 @@ public class ClientFS {
 	 * Example usage: DeleteFile("/Shahram/CSCI485/Lecture1/", "Intro.pptx")
 	 */
 	public FSReturnVals DeleteFile(String tgtdir, String filename) {
+		int error = ms.DeleteFile(tgtdir, filename);
+		
+		switch(error)
+		{
+			case 0:
+				return FSReturnVals.Success;
+			case -1:
+				return FSReturnVals.SrcDirNotExistent;
+			case -2:
+				return FSReturnVals.FileDoesNotExist;
+		}
 		return null;
 	}
 
@@ -160,7 +181,19 @@ public class ClientFS {
 	 * Example usage: OpenFile("/Shahram/CSCI485/Lecture1/Intro.pptx", FH1)
 	 */
 	public FSReturnVals OpenFile(String FilePath, FileHandle ofh) {
-		return null;
+		// Get filehandle of file
+		FileHandle newfh = ms.OpenFile(FilePath);
+		
+		
+		ofh.setChunks(newfh.getChunks());
+		ofh.setFilepath(newfh.getFilepath());
+		
+		if(ofh==null)
+		{
+			return FSReturnVals.FileDoesNotExist;
+		}
+		
+		return FSReturnVals.Success;
 	}
 
 	/**
@@ -169,6 +202,11 @@ public class ClientFS {
 	 * Example usage: CloseFile(FH1)
 	 */
 	public FSReturnVals CloseFile(FileHandle ofh) {
+		if(!ms.HasFilepath(ofh.getFilepath()))
+		{
+			return FSReturnVals.BadHandle;
+		}
+		
 		return null;
 	}
 

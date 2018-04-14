@@ -3,8 +3,13 @@ package com.master;
 import java.util.HashSet;
 import java.util.Vector;
 
+import com.chunkserver.ChunkServer;
+import com.client.FileHandle;
+
 public class Master {
 	public static HashSet<String> namespace; // Maintains all of the directories
+	public static HashSet<FileHandle> filespace;
+	public static ChunkServer cs = new ChunkServer();
 	
 	/**
 	 * Constructor
@@ -14,6 +19,9 @@ public class Master {
 		// Create namespace and add root directory
 		namespace = new HashSet<String>();
 		namespace.add("/"); //TODO: Change for Windows
+		
+		// Create filespace
+		filespace = new HashSet<FileHandle>();
 		
 		// TODO: Will have to connect to network like chunkserver
 	}
@@ -87,7 +95,7 @@ public class Master {
 	 * 
 	 * @param src
 	 * @param NewName
-	 * @return int representing error code (0=success; -1=srcDNE; -2=NewNameExists 
+	 * @return int representing error code (0=success; -1=srcDNE; -2=NewNameExists) 
 	 */
 	public int RenameDir(String src, String NewName)
 	{
@@ -155,6 +163,106 @@ public class Master {
 		}
 		
 		return results;
+	}
+	
+	/**
+	 * 
+	 * @param tgtdir
+	 * @param filename
+	 * @return int representing error status (0=success; -1=srcDNE; -2=FileExists) 
+	 */
+	public int CreateFile(String tgtdir, String filename)
+	{
+		// Check if the specified directory exists
+		if(!namespace.contains(tgtdir))
+		{
+			return -1;
+		}
+		
+		// Check if the filename already exists in that directory
+		if(HasFilepath(tgtdir+filename))
+		{
+			return -2;
+		}
+		
+		// Create new FileHandle and add it to HashSet
+		String filepath = tgtdir+filename;
+		FileHandle fh = new FileHandle(filepath, new Vector<String>());
+		
+		// Initialize first chunk of file (TODO: Via networking to ChunkServer)
+		String ch = cs.initializeChunk();
+		fh.appendChunk(ch);
+		
+		// Add filehandle to filespace
+		filespace.add(fh);
+		
+		// Success
+		return 0;
+	}
+	
+	/**
+	 * 
+	 * @param tgtdir
+	 * @param filename
+	 * @return int representing the error status (0=success; -1=srcDNE; -2=FileDNE)
+	 */
+	public int DeleteFile(String tgtdir, String filename)
+	{
+		// Check if the specified directory exists
+		if(!namespace.contains(tgtdir))
+		{
+			return -1;
+		}
+		
+		// Check if the filename exists
+		if(!HasFilepath(tgtdir+filename))
+		{
+			return -2;
+		}
+		
+		// Remove filehandle
+		String filepath = tgtdir+filename;
+		FileHandle fh = new FileHandle(filepath, new Vector<String>());
+		filespace.remove(fh);
+		
+		// Success
+		return 0;
+	}
+	
+	/**
+	 * 
+	 * @param FilePath
+	 * @return the filepath if exists, null otherwise
+	 */
+	public FileHandle OpenFile(String FilePath)
+	{
+		for(FileHandle fh : filespace)
+		{
+			if(fh.getFilepath().equals(FilePath))
+			{
+				return fh;
+			}
+		}
+		
+		return null;
+	}
+	
+	/**
+	 * Check if the chosen filepath exists in the filespace hashset 
+	 * @param filename
+	 * @return
+	 */
+	public boolean HasFilepath(String filepath)
+	{
+		for(FileHandle fh : filespace)
+		{
+			if(fh.getFilepath().equals(filepath))
+			{
+				return true;
+			}
+		}
+		
+		return false;
 	}
 
 }
