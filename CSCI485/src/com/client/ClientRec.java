@@ -95,7 +95,10 @@ public class ClientRec {
 		// TODO: Return badhandle if ofh is invalid
 
 		// Read last record from chunkserver
-		byte[] payload = cs.readLastRecord(ofh.getLastChunk());
+		RID rid = new RID();
+		byte[] payload = cs.readLastRecord(ofh.getLastChunk(), rid);
+		rec.setPayload(payload);
+		rec.setRID(rid);
 		
 		if(payload == null)
 		{
@@ -137,11 +140,8 @@ public class ClientRec {
 		{
 			return FSReturnVals.RecDoesNotExist;
 		}
-		
 		rec.setPayload(payload);
 		rec.setRID(rid);
-		
-		
 		
 		// Set the TinyRec Payload
 		rec.setPayload(payload);
@@ -161,12 +161,27 @@ public class ClientRec {
 		// TODO: Return badhandle if ofh is invalid
 
 		// Read previous record from chunkserver
-		byte[] payload = cs.readPrevRecord(pivot);
+		RID rid = new RID();
+		byte[] payload = cs.readPrevRecord(pivot, rid);
+		while (payload == null) {
+			String ChunkHandle = pivot.getChunkHandle();
+			String prevChunkHandle = ofh.getPrevChunk(ChunkHandle);
+			if (prevChunkHandle == null) {
+				break;
+			}
+			byte[] bytesNumSlotsInPrevFile = cs.getChunk(prevChunkHandle, 0, 4);
+			int intNumSlotsInPrevFile = ByteBuffer.wrap(bytesNumSlotsInPrevFile).getInt();
+			RID newPivot = new RID(prevChunkHandle, intNumSlotsInPrevFile+1);
+			payload = cs.readPrevRecord(newPivot, rid);
+		}
 		
 		if(payload == null)
 		{
 			return FSReturnVals.RecDoesNotExist;
 		}
+		
+		rec.setPayload(payload);
+		rec.setRID(rid);
 		
 		// Set the TinyRec Payload
 		rec.setPayload(payload);

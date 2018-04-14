@@ -61,6 +61,19 @@ public class FileHandle {
 		return ""; 
 	}
 	
+	public String getPrevChunk(String chunk) {
+		for (int i=chunks.size() - 1; i>= 0; i--) {
+			if (chunks.get(i).equals(chunk)) {
+				if (i == 0) {
+					return null;
+				} else {
+					return chunks.get(i-1);
+				}
+			}
+		}
+		return ""; 
+	}
+	
 	
 	/**File handle should have filepath and 
 	 * a way to determine which chunk handles 

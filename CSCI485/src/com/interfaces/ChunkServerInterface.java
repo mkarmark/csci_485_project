@@ -50,7 +50,7 @@ public interface ChunkServerInterface {
 	/**
 	 * Return byte[] payload corresponding to last record
 	 */
-	public byte[] readLastRecord(String ChunkHandle);
+	public byte[] readLastRecord(String ChunkHandle, RID rid);
 	
 	/**
 	 * Return byte[] payload that is the record after the one corresponding to the RID
@@ -60,5 +60,5 @@ public interface ChunkServerInterface {
 	/**
 	 * Return byte[] payload that is the record before the one corresponding to the RID
 	 */
-	public byte[] readPrevRecord(RID rid);
+	public byte[] readPrevRecord(RID rid, RID prevRid);
 }
