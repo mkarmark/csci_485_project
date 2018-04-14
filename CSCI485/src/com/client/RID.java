@@ -30,5 +30,9 @@ public class RID {
 		this.slotNumber = slotNumber;
 	}
 	
+	public String toString() {
+		return ChunkHandle + ": " + slotNumber; 
+	}
+	
 	
 }

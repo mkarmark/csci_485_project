@@ -354,7 +354,8 @@ import com.interfaces.ChunkServerInterface;
 
 public class ChunkServer implements ChunkServerInterface {
 //	final static String filePath = "C:\\Users\\shahram\\Documents\\TinyFS-2\\csci485Disk\\"; // or C:\\newfile.txt
-	final static String filePath = "/Users/Nandhini/Documents/CSCI485/NewFiles/";
+//	final static String filePath = "/Users/Nandhini/Documents/CSCI485/NewFiles/";
+	final static String filePath = "C:\\Users\\mital\\Desktop\\csci485folder\\";
 	public static long counter;
 
 	/**
@@ -534,7 +535,7 @@ public class ChunkServer implements ChunkServerInterface {
 		}
 	}
 	
-	public void deleteRecord(RID rid) {
+	public boolean deleteRecord(RID rid) {
 		String ChunkHandle = rid.getChunkHandle();
 		int slotNumber = rid.getSlotNumber();
 		
@@ -552,7 +553,7 @@ public class ChunkServer implements ChunkServerInterface {
 		int newOffset = -1;
 		ByteBuffer b = ByteBuffer.allocate(4);
 		byte[] bytesNewOffset = b.putInt(newOffset).array();
-		putChunk(ChunkHandle, bytesNewOffset, 4); 
+		putChunk(ChunkHandle, bytesNewOffset, ChunkServer.ChunkSize - 4*(slotNumber)); 
 		
 		//clear space
 		for (int i=slotNumber+1; i<=intNumOffsets; i++) {
@@ -565,7 +566,12 @@ public class ChunkServer implements ChunkServerInterface {
 				//shift it and numBytes by shifting factor
 				putChunk(ChunkHandle, numBytes, intOffset - shiftingFactor);
 				putChunk(ChunkHandle, payload, intOffset + 4 - shiftingFactor);
+				int changedSlotValue = intOffset - shiftingFactor; 
+				ByteBuffer bChangedSlotValue = ByteBuffer.allocate(4);
+				byte[] bytesChangedSlotValue = bChangedSlotValue.putInt(changedSlotValue).array(); 
+				putChunk(ChunkHandle, bytesChangedSlotValue, ChunkServer.ChunkSize-4*i);
 			}
+			
 		}
 		
 		//shift next available offset
@@ -575,9 +581,10 @@ public class ChunkServer implements ChunkServerInterface {
 		ByteBuffer bIntNextAvailableOffset = ByteBuffer.allocate(4);
 		byte[] newNextAvailableOffset = bIntNextAvailableOffset.putInt(intNextAvailableOffset).array();
 		putChunk(ChunkHandle, newNextAvailableOffset, 4); 
+		return true; 
 	}
 	
-	public byte[] readFirstRecord(String ChunkHandle) {
+	public byte[] readFirstRecord(String ChunkHandle, RID rid) {
 		byte[] numSlots = getChunk(ChunkHandle, 0, 4); 
 		int intNumSlots = ByteBuffer.wrap(numSlots).getInt();
 		if (intNumSlots == 0) {
@@ -585,6 +592,15 @@ public class ChunkServer implements ChunkServerInterface {
 		} else {
 			byte[] offset = getChunk(ChunkHandle, ChunkServer.ChunkSize - 4, 4);
 			int intOffset = ByteBuffer.wrap(offset).getInt(); 
+			rid.setChunkHandle(ChunkHandle);
+			rid.setSlotNumber(1);
+			RID nextRID = new RID();
+			if (intOffset == -1) {
+				byte[] payload = readNextRecord(rid, nextRID);
+				rid.setChunkHandle(nextRID.getChunkHandle());
+				rid.setSlotNumber(nextRID.getSlotNumber());
+				return payload; 
+			}
 			byte[] size = getChunk(ChunkHandle, intOffset, 4);
 			int intSize = ByteBuffer.wrap(size).getInt(); 
 			return getChunk(ChunkHandle, intOffset+4, intSize); 
@@ -592,7 +608,7 @@ public class ChunkServer implements ChunkServerInterface {
 	}
 
 
-	public byte[] readLastRecord(String ChunkHandle) {
+	public byte[] readLastRecord(String ChunkHandle, RID rid) {
 		byte[] numSlots = getChunk(ChunkHandle, 0, 4); 
 		int intNumSlots = ByteBuffer.wrap(numSlots).getInt();
 		if (intNumSlots == 0) {
@@ -600,13 +616,22 @@ public class ChunkServer implements ChunkServerInterface {
 		} else {
 			byte[] offset = getChunk(ChunkHandle, ChunkServer.ChunkSize - 4*intNumSlots, 4);
 			int intOffset = ByteBuffer.wrap(offset).getInt(); 
+			rid.setChunkHandle(ChunkHandle);
+			rid.setSlotNumber(intNumSlots);
+			RID prevRID = new RID();
+			if (intOffset == -1) {
+				byte[] payload = readPrevRecord(rid, prevRID);
+				rid.setChunkHandle(prevRID.getChunkHandle());
+				rid.setSlotNumber(prevRID.getSlotNumber());
+				return payload;
+			}
 			byte[] size = getChunk(ChunkHandle, intOffset, 4);
 			int intSize = ByteBuffer.wrap(size).getInt(); 
 			return getChunk(ChunkHandle, intOffset+4, intSize); 
 		}
 	}
 	
-	public byte[] readNextRecord(RID rid) {
+	public byte[] readNextRecord(RID rid, RID nextRid) {
 		String ChunkHandle = rid.getChunkHandle();
 		int slotNumber = rid.getSlotNumber();
 		byte[] numSlots = getChunk(ChunkHandle, 0, 4); 
@@ -617,13 +642,20 @@ public class ChunkServer implements ChunkServerInterface {
 			int nextSlotNumber = slotNumber+1;
 			byte[] offset = getChunk(ChunkHandle, ChunkServer.ChunkSize - 4*nextSlotNumber, 4);
 			int intOffset = ByteBuffer.wrap(offset).getInt(); 
+			if (intOffset == -1) {
+				rid.setSlotNumber(nextSlotNumber);
+				return readNextRecord(rid, nextRid);
+			} else {
+				nextRid.setChunkHandle(ChunkHandle);
+				nextRid.setSlotNumber(nextSlotNumber);
+			}
 			byte[] size = getChunk(ChunkHandle, intOffset, 4);
 			int intSize = ByteBuffer.wrap(size).getInt(); 
 			return getChunk(ChunkHandle, intOffset+4, intSize); 
 		}
 	}
 	
-	public byte[] readPrevRecord(RID rid) {
+	public byte[] readPrevRecord(RID rid, RID prevRid) {
 		String ChunkHandle = rid.getChunkHandle();
 		int slotNumber = rid.getSlotNumber();
 		if (slotNumber == 1) {
@@ -632,6 +664,13 @@ public class ChunkServer implements ChunkServerInterface {
 			int nextSlotNumber = slotNumber-1;
 			byte[] offset = getChunk(ChunkHandle, ChunkServer.ChunkSize - 4*nextSlotNumber, 4);
 			int intOffset = ByteBuffer.wrap(offset).getInt(); 
+			if (intOffset == -1) {
+				rid.setSlotNumber(nextSlotNumber);
+				return readPrevRecord(rid, prevRid); 
+			} else {
+				prevRid.setChunkHandle(ChunkHandle);
+				prevRid.setSlotNumber(nextSlotNumber);
+			}
 			byte[] size = getChunk(ChunkHandle, intOffset, 4);
 			int intSize = ByteBuffer.wrap(size).getInt(); 
 			return getChunk(ChunkHandle, intOffset+4, intSize); 
