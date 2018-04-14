@@ -48,6 +48,19 @@ public class FileHandle {
 		return chunks.get(0);
 	}
 	
+	public String getNextChunk(String chunk) {
+		for (int i=0; i<chunks.size(); i++) {
+			if (chunks.get(i).equals(chunk)) {
+				if (i == chunks.size() - 1) {
+					return null; 
+				} else {
+					return chunks.get(i+1);
+				}
+			}
+		}
+		return ""; 
+	}
+	
 	
 	/**File handle should have filepath and 
 	 * a way to determine which chunk handles 

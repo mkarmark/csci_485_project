@@ -38,13 +38,14 @@ public interface ChunkServerInterface {
 	
 	/**
 	 * Delete payload at slot number indicated in RID from ChunkHandle
+	 * returns true if success false otherwise
 	 */
-	public void deleteRecord(RID rid);
+	public boolean deleteRecord(RID rid);
 	
 	/**
 	 * Return byte[] payload corresponding to first record
 	 */
-	public byte[] readFirstRecord(String ChunkHandle);
+	public byte[] readFirstRecord(String ChunkHandle, RID rid);
 	
 	/**
 	 * Return byte[] payload corresponding to last record
@@ -54,7 +55,7 @@ public interface ChunkServerInterface {
 	/**
 	 * Return byte[] payload that is the record after the one corresponding to the RID
 	 */
-	public byte[] readNextRecord(RID rid);
+	public byte[] readNextRecord(RID rid, RID nextRid);
 	
 	/**
 	 * Return byte[] payload that is the record before the one corresponding to the RID

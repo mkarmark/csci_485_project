@@ -53,7 +53,8 @@ public class ClientRec {
 	public FSReturnVals DeleteRecord(FileHandle ofh, RID RecordID) {
 		// TODO: Check if RecordID is valid
 		// TODO: Check if ofh is valid
-		cs.deleteRecord(RecordID);
+		boolean status = cs.deleteRecord(RecordID);
+		if (status) return FSReturnVals.Success;  
 		return null;
 	}
 
@@ -67,7 +68,10 @@ public class ClientRec {
 		// TODO: Return badhandle if ofh is invalid
 		
 		// Read first record from chunkserver
-		byte[] payload = cs.readFirstRecord(ofh.getFirstChunk());
+		RID rid = new RID(); 
+		byte[] payload = cs.readFirstRecord(ofh.getFirstChunk(), rid);
+		rec.setPayload(payload);
+		rec.setRID(rid);
 		
 		if(payload == null)
 		{
@@ -116,12 +120,28 @@ public class ClientRec {
 		// TODO: Return badhandle if ofh is invalid
 
 		// Read next record from chunkserver
-		byte[] payload = cs.readNextRecord(pivot);
-		
+//		System.out.println("pivot: " + pivot);
+		RID rid = new RID(); 
+		byte[] payload = cs.readNextRecord(pivot, rid);
+		while (payload == null) {
+			String ChunkHandle = pivot.getChunkHandle(); 
+			String newChunkHandle = ofh.getNextChunk(ChunkHandle); 
+			if (newChunkHandle == null) {
+				break; 
+			}
+			int slotNumber = 0;
+			RID newPivot = new RID(newChunkHandle, slotNumber);
+			payload = cs.readNextRecord(newPivot, rid);
+		}
 		if(payload == null)
 		{
 			return FSReturnVals.RecDoesNotExist;
 		}
+		
+		rec.setPayload(payload);
+		rec.setRID(rid);
+		
+		
 		
 		// Set the TinyRec Payload
 		rec.setPayload(payload);
