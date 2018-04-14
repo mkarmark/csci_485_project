@@ -354,7 +354,8 @@ import com.interfaces.ChunkServerInterface;
 
 public class ChunkServer implements ChunkServerInterface {
 //	final static String filePath = "C:\\Users\\shahram\\Documents\\TinyFS-2\\csci485Disk\\"; // or C:\\newfile.txt
-	final static String filePath = "/Users/Nandhini/Documents/CSCI485/NewFiles/";
+//	final static String filePath = "/Users/Nandhini/Documents/CSCI485/NewFiles/";
+	final static String filePath = "C:\\Users\\mital\\Desktop\\";
 	public static long counter;
 
 	/**
@@ -585,6 +586,10 @@ public class ChunkServer implements ChunkServerInterface {
 		} else {
 			byte[] offset = getChunk(ChunkHandle, ChunkServer.ChunkSize - 4, 4);
 			int intOffset = ByteBuffer.wrap(offset).getInt(); 
+			if (intOffset == -1) {
+				RID rid = new RID(ChunkHandle, 1);
+				return readNextRecord(rid); 
+			}
 			byte[] size = getChunk(ChunkHandle, intOffset, 4);
 			int intSize = ByteBuffer.wrap(size).getInt(); 
 			return getChunk(ChunkHandle, intOffset+4, intSize); 
@@ -600,6 +605,10 @@ public class ChunkServer implements ChunkServerInterface {
 		} else {
 			byte[] offset = getChunk(ChunkHandle, ChunkServer.ChunkSize - 4*intNumSlots, 4);
 			int intOffset = ByteBuffer.wrap(offset).getInt(); 
+			if (intOffset == -1) {
+				RID rid = new RID(ChunkHandle, intNumSlots); 
+				return readPrevRecord(rid); 
+			}
 			byte[] size = getChunk(ChunkHandle, intOffset, 4);
 			int intSize = ByteBuffer.wrap(size).getInt(); 
 			return getChunk(ChunkHandle, intOffset+4, intSize); 
@@ -617,6 +626,9 @@ public class ChunkServer implements ChunkServerInterface {
 			int nextSlotNumber = slotNumber+1;
 			byte[] offset = getChunk(ChunkHandle, ChunkServer.ChunkSize - 4*nextSlotNumber, 4);
 			int intOffset = ByteBuffer.wrap(offset).getInt(); 
+			if (intOffset == -1) {
+				return readNextRecord(rid);
+			}
 			byte[] size = getChunk(ChunkHandle, intOffset, 4);
 			int intSize = ByteBuffer.wrap(size).getInt(); 
 			return getChunk(ChunkHandle, intOffset+4, intSize); 
@@ -632,6 +644,9 @@ public class ChunkServer implements ChunkServerInterface {
 			int nextSlotNumber = slotNumber-1;
 			byte[] offset = getChunk(ChunkHandle, ChunkServer.ChunkSize - 4*nextSlotNumber, 4);
 			int intOffset = ByteBuffer.wrap(offset).getInt(); 
+			if (intOffset == -1) {
+				return readPrevRecord(rid); 
+			}
 			byte[] size = getChunk(ChunkHandle, intOffset, 4);
 			int intSize = ByteBuffer.wrap(size).getInt(); 
 			return getChunk(ChunkHandle, intOffset+4, intSize); 
