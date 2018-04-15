@@ -354,8 +354,8 @@ import com.interfaces.ChunkServerInterface;
 
 public class ChunkServer implements ChunkServerInterface {
 //	final static String filePath = "C:\\Users\\shahram\\Documents\\TinyFS-2\\csci485Disk\\"; // or C:\\newfile.txt
-//	final static String filePath = "/Users/Nandhini/Documents/CSCI485/NewFiles/";
-	final static String filePath = "C:\\Users\\mital\\Desktop\\csci485folder\\";
+	final static String filePath = "/Users/Nandhini/Documents/CSCI485/NewFiles/";
+//	final static String filePath = "C:\\Users\\mital\\Desktop\\csci485folder\\";
 	public static long counter;
 
 	/**
@@ -530,7 +530,6 @@ public class ChunkServer implements ChunkServerInterface {
 			//create a new chunk handle
 			String newChunkHandle = initializeChunk();
 			//call appendRecord on that chunkhandle:
-			System.out.println("cs: Had to create new chunk");
 			return appendRecord(newChunkHandle, payload);
 		}
 	}

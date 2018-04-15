@@ -26,6 +26,13 @@ public class ClientRec {
 		
 		// TODO: Check if the filehandle is bad
 		
+		// Initialize first chunk of file if needed (TODO: Via networking to ChunkServer)
+		if(ofh.getChunks().isEmpty())
+		{
+			String ch = cs.initializeChunk();
+			ofh.appendChunk(ch);
+		}
+		
 		// Get record ID of appended record
 		RID appendedRID = cs.appendRecord(ofh.getLastChunk(), payload);
 		
