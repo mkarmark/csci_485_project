@@ -208,7 +208,7 @@ public class ClientFS {
 			return FSReturnVals.BadHandle;
 		}
 		
-		return null;
+		return FSReturnVals.Success;
 	}
 
 }

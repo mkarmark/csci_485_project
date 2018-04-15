@@ -7,7 +7,7 @@ package com.interfaces;
  */
 public interface ClientInterface {
 	//add constant here so that there is no need to use ChunkServer in unit tests
-	public static final int ChunkSize = 4 * 1024; //4 KB chunk sizes
+	public static final int ChunkSize = 1024 * 1024; //4 KB chunk sizes
 	
 	/**
 	 * Return the chunkhandle for a newly created chunk.

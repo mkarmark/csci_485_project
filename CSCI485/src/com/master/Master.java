@@ -114,6 +114,17 @@ public class Master {
 		namespace.remove(src+dirname+"/");
 		
 		// TODO: Write to log
+		BufferedWriter out = null;
+		try {
+			// The true at the end is so that we just add to the end of the log
+			out = new BufferedWriter(new FileWriter(log,true));
+			out.write("DeleteDir::"+src+"::"+dirname);
+			out.newLine();
+			out.flush();
+			out.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 		
 		return 0;
 	}
@@ -159,6 +170,17 @@ public class Master {
 		}
 		
 		// TODO: Write to log
+		BufferedWriter out = null;
+		try {
+			// The true at the end is so that we just add to the end of the log
+			out = new BufferedWriter(new FileWriter(log,true));
+			out.write("RenameDir::"+src+"::"+NewName);
+			out.newLine();
+			out.flush();
+			out.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 		
 		return 0;
 	}
@@ -222,6 +244,17 @@ public class Master {
 		filespace.add(fh);
 		
 		// TODO: Write to log
+		BufferedWriter out = null;
+		try {
+			// The true at the end is so that we just add to the end of the log
+			out = new BufferedWriter(new FileWriter(log,true));
+			out.write("CreateFile::"+tgtdir+"::"+filename);
+			out.newLine();
+			out.flush();
+			out.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 		
 		// Success
 		return 0;
@@ -253,6 +286,17 @@ public class Master {
 		filespace.remove(fh);
 		
 		// TODO: Write to log
+		BufferedWriter out = null;
+		try {
+			// The true at the end is so that we just add to the end of the log
+			out = new BufferedWriter(new FileWriter(log,true));
+			out.write("DeleteFile::"+tgtdir+"::"+filename);
+			out.newLine();
+			out.flush();
+			out.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 		
 		// Success
 		return 0;
@@ -272,8 +316,6 @@ public class Master {
 				return fh;
 			}
 		}
-		
-		// TODO: Write to log
 		
 		return null;
 	}
