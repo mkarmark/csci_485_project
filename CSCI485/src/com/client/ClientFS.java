@@ -181,17 +181,18 @@ public class ClientFS {
 	 * Example usage: OpenFile("/Shahram/CSCI485/Lecture1/Intro.pptx", FH1)
 	 */
 	public FSReturnVals OpenFile(String FilePath, FileHandle ofh) {
-		// Get filehandle of file
-		FileHandle newfh = ms.OpenFile(FilePath);
-		
-		
-		ofh.setChunks(newfh.getChunks());
-		ofh.setFilepath(newfh.getFilepath());
-		
-		if(ofh==null)
+		// Return FileDoesNotExist if Filepath is not-existent (Need to check master)
+		if(!ms.HasFilepath(FilePath))
 		{
 			return FSReturnVals.FileDoesNotExist;
 		}
+		
+		// Get filehandle of file
+		FileHandle newfh = ms.OpenFile(FilePath);
+		
+		// Deep copy results into given file handle
+		ofh.setChunks(newfh.getChunks());
+		ofh.setFilepath(newfh.getFilepath());
 		
 		return FSReturnVals.Success;
 	}

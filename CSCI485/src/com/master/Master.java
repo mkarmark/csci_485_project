@@ -1,12 +1,19 @@
 package com.master;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.HashSet;
+import java.util.Scanner;
 import java.util.Vector;
 
 import com.chunkserver.ChunkServer;
 import com.client.FileHandle;
 
 public class Master {
+	public static String log = "log.txt";
 	public static HashSet<String> namespace; // Maintains all of the directories
 	public static HashSet<FileHandle> filespace;
 	public static ChunkServer cs = new ChunkServer();
@@ -16,12 +23,17 @@ public class Master {
 	 */
 	public Master()
 	{
-		// Create namespace and add root directory
+		// Create namespace
 		namespace = new HashSet<String>();
-		namespace.add("/"); //TODO: Change for Windows
+		
+		// Check if the namespace exists on disk
+		CheckNamespace();
 		
 		// Create filespace
 		filespace = new HashSet<FileHandle>();
+		
+		// Check if the filespace exists on disk
+		CheckFilespace();
 		
 		// TODO: Will have to connect to network like chunkserver
 	}
@@ -47,6 +59,19 @@ public class Master {
 		
 		// Create the directory
 		namespace.add(src+dirname+"/");
+		
+		// Write to Log
+		BufferedWriter out = null;
+		try {
+			// The true at the end is so that we just add to the end of the log
+			out = new BufferedWriter(new FileWriter(log,true));
+			out.write("CreateDir::"+src+"::"+dirname);
+			out.newLine();
+			out.flush();
+			out.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 		
 		return 0;
 	}
@@ -87,6 +112,8 @@ public class Master {
 		
 		// No errors = delete it
 		namespace.remove(src+dirname+"/");
+		
+		// TODO: Write to log
 		
 		return 0;
 	}
@@ -130,6 +157,8 @@ public class Master {
 			namespace.add(newDir);
 			namespace.remove(dir);
 		}
+		
+		// TODO: Write to log
 		
 		return 0;
 	}
@@ -189,12 +218,10 @@ public class Master {
 		String filepath = tgtdir+filename;
 		FileHandle fh = new FileHandle(filepath, new Vector<String>());
 		
-		// Initialize first chunk of file (TODO: Via networking to ChunkServer)
-		String ch = cs.initializeChunk();
-		fh.appendChunk(ch);
-		
 		// Add filehandle to filespace
 		filespace.add(fh);
+		
+		// TODO: Write to log
 		
 		// Success
 		return 0;
@@ -225,6 +252,8 @@ public class Master {
 		FileHandle fh = new FileHandle(filepath, new Vector<String>());
 		filespace.remove(fh);
 		
+		// TODO: Write to log
+		
 		// Success
 		return 0;
 	}
@@ -243,6 +272,8 @@ public class Master {
 				return fh;
 			}
 		}
+		
+		// TODO: Write to log
 		
 		return null;
 	}
@@ -263,6 +294,151 @@ public class Master {
 		}
 		
 		return false;
+	}
+	
+	/** Code to write namespace to file **/
+	
+	/**
+	 * Check if a namespace.txt exists on disk
+	 * Read in namespace if it does, create root if it doesn't
+	 */
+	public void CheckNamespace()
+	{
+		// Check if a namespace file exists and read all directories from it
+		File nsp = new File("namespace.txt");
+		Scanner scanner;
+		try {
+			scanner = new Scanner(nsp);
+			while(scanner.hasNext())
+			{
+				namespace.add(scanner.nextLine());
+			}
+			scanner.close();
+		} catch (FileNotFoundException e) {
+			// If the file doesn't exist just add root directory
+			namespace.add("/");
+		}
+	}
+	
+	/**
+	 * Check if a filespace.txt exists on disk
+	 * filespace is set up as a filepath followed by the number of 
+	 * chunkhandles followed by the chunkhandles each on a new line
+	 */
+	public void CheckFilespace()
+	{
+		// Check if a namespace file exists and read all directories from it
+		File nfp = new File("filespace.txt");
+		Scanner scanner;
+		try {
+			scanner = new Scanner(nfp);
+			while(scanner.hasNext())
+			{
+				// Create a new FileHandle
+				FileHandle newfh = new FileHandle();
+				
+				// Get the filepath
+				newfh.setFilepath(scanner.nextLine());
+				
+				// Get the number of chunk handles
+				int numChunks = scanner.nextInt();
+				
+				// Get each chunk handle
+				for(int i=0; i<numChunks; i++)
+				{
+					newfh.appendChunk(scanner.nextLine());
+				}
+				
+				// Add the filehandle to the filespace
+				filespace.add(newfh);
+			}
+			scanner.close();
+		} catch (FileNotFoundException e) {
+			// If the file doesn't exist, do nothing
+		}
+	}
+	
+	/**
+	 * Write the namespace to a file by first creating a new file, 
+	 * then deleting the old and renaming the new
+	 */
+	public void WriteNamespaceToDisk()
+	{
+		// Create a new namespace to not overwrite the old one
+		File newNamespace = new File("newnamespace.txt");
+		
+		// Write namespace out to this new file
+		BufferedWriter out = null;
+		try {
+			out = new BufferedWriter(new FileWriter("newnamespace.txt"));
+			for(String dir : namespace)
+			{
+				out.write(dir);
+				out.newLine();
+				out.flush();
+			}
+			out.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+		// Delete the old namespace and rename this new one
+       File oldnamespace = new File("namespace.txt");
+       oldnamespace.delete();
+       newNamespace.renameTo(oldnamespace);
+       
+       // TODO: Clear the log
+	}
+	
+	/**
+	 * Filespace is written as:
+	 * Filepath (String)
+	 * number of chunks (int)
+	 * chunkhandle1 (String)
+	 * ...
+	 */
+	public void WriteFilespaceToDisk()
+	{
+		// Create a new namespace to not overwrite the old one
+		File newFilespace = new File("newfilespace.txt");
+		
+		// Write namespace out to this new file
+		BufferedWriter out = null;
+		try {
+			out = new BufferedWriter(new FileWriter("newfilespace.txt"));
+			for(FileHandle fh : filespace)
+			{
+				// First write filepath
+				out.write(fh.getFilepath());
+				out.newLine();
+				
+				// Get the chunks
+				Vector<String> chunks = fh.getChunks();
+				int chunkSize = chunks.size();
+				
+				// Write number of chunks
+				out.write(""+chunkSize);
+				out.newLine();
+				
+				// Write each of the chunks in order
+				for(int i=0; i<chunkSize; i++)
+				{
+					out.write(chunks.get(i));
+					out.newLine();
+				}
+				out.flush();
+			}
+			out.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+		// Delete the old namespace and rename this new one
+       File oldfilespace = new File("filespace.txt");
+       oldfilespace.delete();
+       newFilespace.renameTo(oldfilespace);
+       
+       // TODO: Clear the log
 	}
 
 }
