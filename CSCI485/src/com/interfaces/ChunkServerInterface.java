@@ -40,7 +40,7 @@ public interface ChunkServerInterface {
 	 * Delete payload at slot number indicated in RID from ChunkHandle
 	 * returns true if success false otherwise
 	 */
-	public boolean deleteRecord(RID rid);
+	public boolean deleteRecord(RID rid, String FirstChunkHandle);
 	
 	/**
 	 * Return byte[] payload corresponding to first record

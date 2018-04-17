@@ -74,7 +74,7 @@ public class ClientRec {
 	public FSReturnVals DeleteRecord(FileHandle ofh, RID RecordID) {
 		// TODO: Check if RecordID is valid
 		// TODO: Check if ofh is valid
-		boolean status = cs.deleteRecord(RecordID);
+		boolean status = cs.deleteRecord(RecordID, ofh.getFirstChunk());
 		if (status) return FSReturnVals.Success;  
 		return null;
 	}
@@ -147,9 +147,9 @@ public class ClientRec {
 //		System.out.println("pivot: " + pivot);
 		RID rid = new RID(); 
 		byte[] payload = cs.readNextRecord(pivot, rid);
-		System.out.println("Currently read " + pivot + " and next one is " + rid);
+//		System.out.println("Currently read " + pivot + " and next one is " + rid);
 		while (payload == null) {
-			System.out.println("Gotta move on to next slot");
+//			System.out.println("Gotta move on to next slot");
 			String ChunkHandle = pivot.getChunkHandle(); 
 			String newChunkHandle = ofh.getNextChunk(ChunkHandle); 
 			if (newChunkHandle == null) {
