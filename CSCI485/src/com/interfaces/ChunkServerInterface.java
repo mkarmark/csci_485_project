@@ -34,7 +34,7 @@ public interface ChunkServerInterface {
 	 * Create an extra chunk if the last chunk does not have space
 	 * Returns RID the payload is on over which the byte payload was appended
 	 */
-	public Vector<RID> appendRecord(String ChunkHandle, byte[] payload);
+	public Vector<RID> appendRecord(String ChunkHandle, byte[] payload, String previousChunkHandle);
 	
 	/**
 	 * Delete payload at slot number indicated in RID from ChunkHandle
