@@ -1,13 +1,28 @@
 package com.client;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.net.Socket;
+import java.util.Scanner;
 import java.util.Vector;
 
 import com.chunkserver.ChunkServer;
 import com.master.Master;
+import com.message.CreateDirMessage;
+import com.message.CreateFileMessage;
+import com.message.DeleteDirMessage;
+import com.message.DeleteFileMessage;
+import com.message.FilePathExistsMessage;
+import com.message.ListDirMessage;
+import com.message.OpenFileMessage;
+import com.message.RenameDirMessage;
 
 public class ClientFS {
-	// TODO: Remove when networking
-	public static Master ms = new Master();
+	private ObjectInputStream ois;
+	private ObjectOutputStream oos;
 
 	public enum FSReturnVals {
 		DirExists, // Returned by CreateDir when directory exists
@@ -24,6 +39,37 @@ public class ClientFS {
 		Success, //Returned when a method succeeds
 		Fail //Returned when a method fails
 	}
+	
+	// Constructor
+	public ClientFS(){
+		int port = 5858;
+		
+		// Get the port number
+		File portFile = new File("MasterPort.txt");
+		Scanner scanner;
+		try {
+			scanner = new Scanner(portFile);
+			while(scanner.hasNext())
+			{
+				port = scanner.nextInt();
+			}
+			scanner.close();
+		} catch (FileNotFoundException e) {
+			System.out.println("port file not found");
+		}
+		
+		// Connect to the port
+		try {
+			System.out.println("Trying to connect to Master");
+			// TODO: Get IP address of master from file
+			Socket s = new Socket("localhost", port);
+			
+			ois = new ObjectInputStream(s.getInputStream());
+			oos = new ObjectOutputStream(s.getOutputStream());
+		} catch (IOException ioe) {
+			System.out.println("ioe in clientFS constructor: " + ioe.getMessage());
+		}
+	}
 
 	/**
 	 * Creates the specified dirname in the src directory Returns
@@ -34,7 +80,30 @@ public class ClientFS {
 	 * "CSCI485"), CreateDir("/Shahram/CSCI485/", "Lecture1")
 	 */
 	public FSReturnVals CreateDir(String src, String dirname) {
-		int error = ms.CreateDir(src, dirname);
+		CreateDirMessage cdm = new CreateDirMessage(src, dirname);
+		
+		try{
+			// Send the message
+			oos.writeObject(cdm);
+			oos.flush();
+			
+			// Receive the response and cast
+			Object o = null;
+			o = ois.readObject();
+			cdm = (CreateDirMessage)o;
+			
+			// Reset both streams
+			oos.reset();
+		} catch (IOException ioe) {
+			System.out.println("ioe in clientFS: "+ioe.getMessage());
+		} catch (ClassNotFoundException cnfe) {
+			System.out.println("In ClientFS createDir " + cnfe.getMessage());
+		}
+		
+		// Get error from message
+		int error = cdm.getError();
+		
+		// Return based on error
 		switch(error)
 		{
 			case 0:
@@ -56,7 +125,28 @@ public class ClientFS {
 	 * Example usage: DeleteDir("/Shahram/CSCI485/", "Lecture1")
 	 */
 	public FSReturnVals DeleteDir(String src, String dirname) {
-		int error = ms.DeleteDir(src, dirname);
+		DeleteDirMessage ddm = new DeleteDirMessage(src, dirname);
+		
+		try{
+			// Send the message
+			oos.writeObject(ddm);
+			oos.flush();
+			
+			// Receive the response and cast
+			Object o = null;
+			o = ois.readObject();
+			ddm = (DeleteDirMessage)o;
+			
+			// Reset both streams
+			oos.reset();
+		} catch (IOException ioe) {
+			System.out.println("ioe in clientFS: "+ioe.getMessage());
+		} catch (ClassNotFoundException cnfe) {
+			System.out.println("In ClientFS createDir " + cnfe.getMessage());
+		}
+		
+		// Get error from message
+		int error = ddm.getError();
 		
 		switch(error)
 		{
@@ -82,7 +172,27 @@ public class ClientFS {
 	 * "/Shahram/CSCI485" to "/Shahram/CSCI550"
 	 */
 	public FSReturnVals RenameDir(String src, String NewName) {
-		int error = ms.RenameDir(src, NewName);
+		RenameDirMessage rdm = new RenameDirMessage(src, NewName);
+		
+		try{
+			// Send the message
+			oos.writeObject(rdm);
+			oos.flush();
+			
+			// Receive the response and cast
+			Object o = null;
+			o = ois.readObject();
+			rdm = (RenameDirMessage)o;
+			
+			// Reset both streams
+			oos.reset();
+		} catch (IOException ioe) {
+			System.out.println("ioe in clientFS: "+ioe.getMessage());
+		} catch (ClassNotFoundException cnfe) {
+			System.out.println("In ClientFS createDir " + cnfe.getMessage());
+		}
+		
+		int error = rdm.getError();
 		
 		switch(error)
 		{
@@ -104,7 +214,27 @@ public class ClientFS {
 	 * Example usage: ListDir("/Shahram/CSCI485")
 	 */
 	public String[] ListDir(String tgt) {
-		Vector<String> results = ms.ListDir(tgt);
+		ListDirMessage ldm = new ListDirMessage(tgt);
+		
+		try{
+			// Send the message
+			oos.writeObject(ldm);
+			oos.flush();
+			
+			// Receive the response and cast
+			Object o = null;
+			o = ois.readObject();
+			ldm = (ListDirMessage)o;
+			
+			// Reset both streams
+			oos.reset();
+		} catch (IOException ioe) {
+			System.out.println("ioe in clientFS: "+ioe.getMessage());
+		} catch (ClassNotFoundException cnfe) {
+			System.out.println("In ClientFS createDir " + cnfe.getMessage());
+		}
+		
+		Vector<String> results = ldm.getResults();
 		
 		// If it's empty, return null
 		if(results.isEmpty())
@@ -137,7 +267,26 @@ public class ClientFS {
 	 * Example usage: Createfile("/Shahram/CSCI485/Lecture1/", "Intro.pptx")
 	 */
 	public FSReturnVals CreateFile(String tgtdir, String filename) {
-		int error = ms.CreateFile(tgtdir, filename);
+		CreateFileMessage cfm = new CreateFileMessage(tgtdir, filename);
+		
+		try{
+			// Send the message
+			oos.writeObject(cfm);
+			oos.flush();
+			
+			// Receive the response and cast
+			Object o = null;
+			o = ois.readObject();
+			cfm = (CreateFileMessage)o;
+			
+			// Reset both streams
+			oos.reset();
+		} catch (IOException ioe) {
+			System.out.println("ioe in clientFS: "+ioe.getMessage());
+		} catch (ClassNotFoundException cnfe) {
+			System.out.println("In ClientFS createDir " + cnfe.getMessage());
+		}
+		int error = cfm.getError();
 		
 		switch(error)
 		{
@@ -159,7 +308,26 @@ public class ClientFS {
 	 * Example usage: DeleteFile("/Shahram/CSCI485/Lecture1/", "Intro.pptx")
 	 */
 	public FSReturnVals DeleteFile(String tgtdir, String filename) {
-		int error = ms.DeleteFile(tgtdir, filename);
+		DeleteFileMessage dfm = new DeleteFileMessage(tgtdir, filename);
+		
+		try{
+			// Send the message
+			oos.writeObject(dfm);
+			oos.flush();
+			
+			// Receive the response and cast
+			Object o = null;
+			o = ois.readObject();
+			dfm = (DeleteFileMessage)o;
+			
+			// Reset both streams
+			oos.reset();
+		} catch (IOException ioe) {
+			System.out.println("ioe in clientFS: "+ioe.getMessage());
+		} catch (ClassNotFoundException cnfe) {
+			System.out.println("In ClientFS createDir " + cnfe.getMessage());
+		}
+		int error = dfm.getError();
 		
 		switch(error)
 		{
@@ -182,13 +350,52 @@ public class ClientFS {
 	 */
 	public FSReturnVals OpenFile(String FilePath, FileHandle ofh) {
 		// Return FileDoesNotExist if Filepath is not-existent (Need to check master)
-		if(!ms.HasFilepath(FilePath))
+		FilePathExistsMessage fpem = new FilePathExistsMessage(FilePath);
+		
+		try{
+			// Send the message
+			oos.writeObject(fpem);
+			oos.flush();
+			
+			// Receive the response and cast
+			Object o = null;
+			o = ois.readObject();
+			fpem = (FilePathExistsMessage)o;
+			
+			// Reset both streams
+			oos.reset();
+		} catch (IOException ioe) {
+			System.out.println("ioe in clientFS: "+ioe.getMessage());
+		} catch (ClassNotFoundException cnfe) {
+			System.out.println("In ClientFS createDir " + cnfe.getMessage());
+		}
+		
+		if(!fpem.isExists())
 		{
 			return FSReturnVals.FileDoesNotExist;
 		}
 		
 		// Get filehandle of file
-		FileHandle newfh = ms.OpenFile(FilePath);
+		OpenFileMessage ofm = new OpenFileMessage(FilePath);
+
+		try{
+			// Send the message
+			oos.writeObject(ofm);
+			oos.flush();
+			
+			// Receive the response and cast
+			Object o = null;
+			o = ois.readObject();
+			ofm = (OpenFileMessage)o;
+			
+			// Reset both streams
+			oos.reset();
+		} catch (IOException ioe) {
+			System.out.println("ioe in clientFS: "+ioe.getMessage());
+		} catch (ClassNotFoundException cnfe) {
+			System.out.println("In ClientFS createDir " + cnfe.getMessage());
+		}
+		FileHandle newfh = ofm.getFh();
 		
 		// Deep copy results into given file handle
 		ofh.setChunks(newfh.getChunks());
@@ -203,7 +410,28 @@ public class ClientFS {
 	 * Example usage: CloseFile(FH1)
 	 */
 	public FSReturnVals CloseFile(FileHandle ofh) {
-		if(!ms.HasFilepath(ofh.getFilepath()))
+		// Return FileDoesNotExist if Filepath is not-existent (Need to check master)
+		FilePathExistsMessage fpem = new FilePathExistsMessage(ofh.getFilepath());
+		
+		try{
+			// Send the message
+			oos.writeObject(fpem);
+			oos.flush();
+			
+			// Receive the response and cast
+			Object o = null;
+			o = ois.readObject();
+			fpem = (FilePathExistsMessage)o;
+			
+			// Reset both streams
+			oos.reset();
+		} catch (IOException ioe) {
+			System.out.println("ioe in clientFS: "+ioe.getMessage());
+		} catch (ClassNotFoundException cnfe) {
+			System.out.println("In ClientFS createDir " + cnfe.getMessage());
+		}
+		
+		if(!fpem.isExists())
 		{
 			return FSReturnVals.BadHandle;
 		}

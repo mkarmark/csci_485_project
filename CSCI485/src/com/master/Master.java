@@ -5,6 +5,8 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.HashSet;
 import java.util.Scanner;
 import java.util.Vector;
@@ -16,7 +18,6 @@ public class Master {
 	public static String log = "log.txt";
 	public static HashSet<String> namespace; // Maintains all of the directories
 	public static HashSet<FileHandle> filespace;
-	public static ChunkServer cs = new ChunkServer();
 	
 	/**
 	 * Constructor
@@ -34,8 +35,6 @@ public class Master {
 		
 		// Check if the filespace exists on disk
 		CheckFilespace();
-		
-		// TODO: Will have to connect to network like chunkserver
 	}
 	
 	/**Create directory
@@ -481,6 +480,47 @@ public class Master {
        newFilespace.renameTo(oldfilespace);
        
        // TODO: Clear the log
+	}
+	
+	/** Main function **/
+	public static void main(String [] args) {
+		// Put new ServerSocket() in a while loop incrementing by 1 in catch until 
+		// it binds. Write the port number into a file that client can read from
+		ServerSocket ss; 
+		boolean havePort = false;
+		int port = 5858;
+		
+		Master ms = new Master();
+		
+		// Try to connect to a port
+		while(!havePort)
+		{
+			try
+			{
+				ss = new ServerSocket(port);
+				// TODO: Write IP address out to file
+				// Write port number out to file
+				BufferedWriter writer;
+				try {
+					writer = new BufferedWriter(new FileWriter("MasterPort.txt"));
+					writer.write(""+port);
+				    writer.close();
+				} catch (IOException e1) {
+					e1.printStackTrace();
+				}
+				
+				// Loop to accept connections
+				while(true) {
+					Socket s = ss.accept();
+					MasterThread mt = new MasterThread(s, ms);
+					System.out.println("Master. Connection accepted from: "+s.getPort());
+				}
+			}
+			catch (IOException ioe)
+			{
+				port++;
+			}
+		}
 	}
 
 }

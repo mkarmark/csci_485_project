@@ -1,8 +1,10 @@
 package com.client;
 
+import java.io.Serializable;
 import java.util.Vector;
 
-public class FileHandle {
+public class FileHandle implements Serializable{
+	private static final long serialVerisionUID = 1;
 	private String filepath;
 	private Vector<String> chunks;
 	
