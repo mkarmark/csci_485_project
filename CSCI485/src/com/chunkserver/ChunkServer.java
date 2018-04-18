@@ -486,7 +486,7 @@ public class ChunkServer implements ChunkServerInterface {
 	 * Create an extra chunk if the last chunk does not have space
 	 * Returns a RID of the chunkhandles over which the byte payload was appended
 	 */
-	public Vector<RID> appendRecord(String ChunkHandle, byte[] payload)
+	public Vector<RID> appendRecord(String ChunkHandle, byte[] payload, String previousChunkHandle)
 	{
 		NumAppendsCalled++;
 		Vector<String> handles = new Vector<String>(); 
@@ -498,12 +498,10 @@ public class ChunkServer implements ChunkServerInterface {
 		int intNextFreeOffset = ByteBuffer.wrap(nextFreeOffset).getInt(); 
 		int numBytesInPayload = payload.length; 
 		int numBytesFreeSpace = ChunkServer.ChunkSize - intNextFreeOffset - 4*(intNumSlots+1);
-//		System.out.println("payload size = " + payload.length);
 		Vector<RID> rids = new Vector<RID>(); 
 		//entire append can take place in last chunk 
-		if (numBytesFreeSpace >= numBytesInPayload + 8)
+		if (numBytesFreeSpace >= numBytesInPayload + 12)
 		{
-//			System.out.println("ChunkHandle: " + ChunkHandle + " has space"); 
 			//a new set of 4 bytes that indicate the number of slots
 			intNumSlots++;
 			ByteBuffer bNumSlots = ByteBuffer.allocate(4);
@@ -513,7 +511,7 @@ public class ChunkServer implements ChunkServerInterface {
 			//a new set of 4 bytes that indicate where the next free offset is after 
 			//payload is placed in
 			int currOffset = intNextFreeOffset;
-			intNextFreeOffset += (8 + numBytesInPayload);
+			intNextFreeOffset += (12 + numBytesInPayload);
 			ByteBuffer bNextFreeOffset = ByteBuffer.allocate(4);
 			bNextFreeOffset.putInt(intNextFreeOffset);
 			byte[] byteNextFreeOffset = bNextFreeOffset.array(); 
@@ -528,6 +526,11 @@ public class ChunkServer implements ChunkServerInterface {
 			bNextChunk.putInt(-1);
 			byte[] byteNextChunk = bNextChunk.array();
 			
+			//pointer to prev chunk
+			ByteBuffer bPrevChunk = ByteBuffer.allocate(4);
+			bPrevChunk.putInt(Integer.parseInt(previousChunkHandle));
+			byte[] bytePrevChunk = bPrevChunk.array();
+			
 			//a new slot entry to add to the end of the chunk
 			ByteBuffer bSlotEntry = ByteBuffer.allocate(4);
 			bSlotEntry.putInt(currOffset);
@@ -538,16 +541,13 @@ public class ChunkServer implements ChunkServerInterface {
 			putChunk(ChunkHandle, byteNextFreeOffset, 4);
 			putChunk(ChunkHandle, bytePayloadSize, currOffset);
 			putChunk(ChunkHandle, byteNextChunk, currOffset + 4);
-			putChunk(ChunkHandle, payload, currOffset + 8);
+			putChunk(ChunkHandle, bytePrevChunk, currOffset + 8);
+			putChunk(ChunkHandle, payload, currOffset + 12);
 			putChunk(ChunkHandle, byteSlotEntry, ChunkServer.ChunkSize - 4*(intNumSlots));
 			RID rid = new RID(ChunkHandle, intNumSlots);
 			rids.add(rid); 
-//			System.out.println(rid);
-		} else if(numBytesFreeSpace > 8){
-//			System.out.println("ChunkHandle: " + ChunkHandle + " is running out of space so payload at " + (intNumSlots+1) + "");
-			int availableBytes = numBytesFreeSpace - 8;
-//			System.out.println("available bytes is " + availableBytes );
-			
+		} else if(numBytesFreeSpace > 12){
+			int availableBytes = numBytesFreeSpace - 12;
 			byte[] firstSection = new byte[availableBytes];
 			byte[] secondSection = new byte[numBytesInPayload - availableBytes];
 			
@@ -558,8 +558,7 @@ public class ChunkServer implements ChunkServerInterface {
 			for(int j = 0; j < numBytesInPayload - availableBytes; j++){
 				secondSection[j] = payload[availableBytes + j];
 			}
-			
-			
+						
 			//a new set of 4 bytes that indicate the number of slots
 			intNumSlots++;
 			ByteBuffer bNumSlots = ByteBuffer.allocate(4);
@@ -569,7 +568,7 @@ public class ChunkServer implements ChunkServerInterface {
 			//a new set of 4 bytes that indicate where the next free offset is after 
 			//payload is placed in
 			int currOffset = intNextFreeOffset;
-			intNextFreeOffset += (8 + availableBytes);
+			intNextFreeOffset += (12 + availableBytes);
 			ByteBuffer bNextFreeOffset = ByteBuffer.allocate(4);
 			bNextFreeOffset.putInt(intNextFreeOffset);
 			byte[] byteNextFreeOffset = bNextFreeOffset.array(); 
@@ -587,6 +586,10 @@ public class ChunkServer implements ChunkServerInterface {
 			bNextChunk.putInt(handleInt);
 			byte[] byteNextChunk = bNextChunk.array();
 			
+			ByteBuffer bPrevChunk = ByteBuffer.allocate(4);
+			bPrevChunk.putInt(Integer.parseInt(previousChunkHandle));
+			byte[] bytePrevChunk = bPrevChunk.array(); 
+			
 			//a new slot entry to add to the end of the chunk
 			ByteBuffer bSlotEntry = ByteBuffer.allocate(4);
 			bSlotEntry.putInt(currOffset);
@@ -597,45 +600,22 @@ public class ChunkServer implements ChunkServerInterface {
 			putChunk(ChunkHandle, byteNextFreeOffset, 4);
 			putChunk(ChunkHandle, bytePayloadSize, currOffset);
 			putChunk(ChunkHandle, byteNextChunk, currOffset + 4);
-			putChunk(ChunkHandle, firstSection, currOffset + 8);
+			putChunk(ChunkHandle, bytePrevChunk, currOffset + 8);
+			putChunk(ChunkHandle, firstSection, currOffset + 12);
 			putChunk(ChunkHandle, byteSlotEntry, ChunkServer.ChunkSize - 4*(intNumSlots));
 			
-			Vector<RID> extraRids = appendRecord(handle, secondSection);
+			Vector<RID> extraRids = appendRecord(handle, secondSection, ChunkHandle);
 			RID rid = new RID(ChunkHandle, intNumSlots);
-//			System.out.println(rid);
 			rids.add(rid);
 			for (int i=0; i<extraRids.size(); i++) {
-//				System.out.println(extraRids.get(i));
 				rids.add(extraRids.get(i)); 
 			}
 		}else {
-//			System.out.println("In else!");
 			//create a new chunk handle
 			String newChunkHandle = initializeChunk();
-//			System.out.println("Just created a new chunk handle: " + newChunkHandle);
 			//call appendRecord on that chunkhandle:
-			rids = appendRecord(newChunkHandle, payload);
-//			System.out.print("Here are the RIDS: ");
-//			for (int i=0; i<rids.size(); i++) {
-//				System.out.print(rids.get(i) +" \t");
-				
-//			}
-//			System.out.println();
+			rids = appendRecord(newChunkHandle, payload, "-1");
 		}
-//		System.out.println("Returning out of append in cs");
-//		if (rids.get(0).getSlotNumber() == 35) {
-//			System.out.println("When appending slot 35, did so in a pack of " + rids.size() + " rids");
-//			int offset = ByteBuffer.wrap(getChunk(rids.get(0).getChunkHandle(), ChunkServer.ChunkSize-4*35, 4)).getInt();
-//			System.out.println("Slot 35 offset @ " + offset);
-//			System.out.println("Next on slot 35 is " + 
-//					ByteBuffer.wrap(getChunk(rids.get(0).getChunkHandle(), offset+4, 4)).getInt());
-//		} else if (rids.get(0).getSlotNumber() == 36) {
-//			System.out.println("When appending slot 36, did so in a pack of " + rids.size() + " rids");
-//			int offset = ByteBuffer.wrap(getChunk(rids.get(0).getChunkHandle(), ChunkServer.ChunkSize-4*36, 4)).getInt();
-//			System.out.println("Slot 36 offset @ " + offset);
-//			System.out.println("Next on slot 36 is " + 
-//					ByteBuffer.wrap(getChunk(rids.get(0).getChunkHandle(), offset+4, 4)).getInt());
-//		}
 		return rids; 
 	}
 	
@@ -660,25 +640,14 @@ public class ChunkServer implements ChunkServerInterface {
 		byte[] offsetToDelete = getChunk(ChunkHandle, ChunkServer.ChunkSize - 4*(slotNumber), 4);
 		int intOffSetToDelete = ByteBuffer.wrap(offsetToDelete).getInt();
 		
-//		byte[] numBytesInDeletedPayload = getChunk(ChunkHandle, intOffSetToDelete, 4);
-//		int intNumBytesInDeletedPayload = ByteBuffer.wrap(numBytesInDeletedPayload).getInt(); 
-//		int shiftingFactor = intNumBytesInDeletedPayload + 8; 
-		
-		//set currSlot to -1
-		
 		int nextChunk = ByteBuffer.wrap(getChunk(ChunkHandle, intOffSetToDelete + 4, 4)).getInt();  
 		
 		int newOffset = -1;
 		ByteBuffer b = ByteBuffer.allocate(4);
 		byte[] bytesNewOffset = b.putInt(newOffset).array();
 		putChunk(ChunkHandle, bytesNewOffset, ChunkServer.ChunkSize - 4*(slotNumber));
-//		System.out.println("set offset at rid " + rid + " to " + ByteBuffer.wrap( getChunk(ChunkHandle, ChunkServer.ChunkSize - 4*(slotNumber), 4)).getInt() );
-//		if (slotNumber == 36) {
-//			System.out.println("appropriately, offset at 36 is " + ByteBuffer.wrap( getChunk(ChunkHandle, ChunkServer.ChunkSize - 4*(slotNumber), 4)).getInt());
-//		}
-//		
+
 		if (slotNumber == intNumOffsets) {
-//			System.out.println("in if block for " + rid);
 			boolean recHasNextChunk = true;
 			String currChunkHandle = ChunkHandle; 
 			boolean isFirstIteration = true;
@@ -699,9 +668,9 @@ public class ChunkServer implements ChunkServerInterface {
 						currChunkHandle = "" + nextChunk; 
 					}
 				}
+				isFirstIteration = false; 
 			}
 		} else if (slotNumber == 1 && !ChunkHandle.equals(FirstChunkHandle)) {
-//			System.out.println("Potential for a mistake here");
 			String prevChunkHandle = "" + (Integer.parseInt(ChunkHandle) - 1); 
 			int numSlotsInPrev = ByteBuffer.wrap(getChunk(prevChunkHandle, 0, 4)).getInt();
 			boolean needToLookAtMoreFiles = (numSlotsInPrev == 1);
@@ -726,38 +695,9 @@ public class ChunkServer implements ChunkServerInterface {
 					needToLookAtMoreFiles = false; 
 				}
 			}
-			///putChunk(prevChunkHandle, bytesNewOffset)
 		}
 		
 		return true;
-		
-//		//clear space
-//		for (int i=slotNumber+1; i<=intNumOffsets; i++) {
-//			byte[] offset = getChunk(ChunkHandle, ChunkServer.ChunkSize - 4*i, 4); 
-//			int intOffset = ByteBuffer.wrap(offset).getInt(); 
-//			if (intOffset != -1) {
-//				byte[] numBytes = getChunk(ChunkHandle, intOffset, 4);
-//				int intNumBytes = ByteBuffer.wrap(numBytes).getInt(); 
-//				byte[] payload = getChunk(ChunkHandle, intOffset+4, intNumBytes);
-//				//shift it and numBytes by shifting factor
-//				putChunk(ChunkHandle, numBytes, intOffset - shiftingFactor);
-//				putChunk(ChunkHandle, payload, intOffset + 4 - shiftingFactor);
-//				int changedSlotValue = intOffset - shiftingFactor; 
-//				ByteBuffer bChangedSlotValue = ByteBuffer.allocate(4);
-//				byte[] bytesChangedSlotValue = bChangedSlotValue.putInt(changedSlotValue).array(); 
-//				putChunk(ChunkHandle, bytesChangedSlotValue, ChunkServer.ChunkSize-4*i);
-//			}
-//			
-//		}
-//		
-//		//shift next available offset
-//		byte[] nextAvailableOffset = getChunk(ChunkHandle, 4, 4);
-//		int intNextAvailableOffset = ByteBuffer.wrap(nextAvailableOffset).getInt();
-//		intNextAvailableOffset -= shiftingFactor;
-//		ByteBuffer bIntNextAvailableOffset = ByteBuffer.allocate(4);
-//		byte[] newNextAvailableOffset = bIntNextAvailableOffset.putInt(intNextAvailableOffset).array();
-//		putChunk(ChunkHandle, newNextAvailableOffset, 4); 
-//		return true; 
 	}
 	
 	//to do: delete functionality
@@ -780,7 +720,7 @@ public class ChunkServer implements ChunkServerInterface {
 			int size = ByteBuffer.wrap(getChunk(ChunkHandle, offset, 4)).getInt();
 			rid.setChunkHandle(ChunkHandle);
 			rid.setSlotNumber(currSlot);
-			return getChunk(ChunkHandle, offset+8, size); 
+			return getChunk(ChunkHandle, offset+12, size); 
 		}
 		//keep seeking to next
 		else {
@@ -795,7 +735,7 @@ public class ChunkServer implements ChunkServerInterface {
 					offset = ByteBuffer.wrap(getChunk(currChunkhandle, ChunkServer.ChunkSize - 4, 4)).getInt();
 				}
 				int size = ByteBuffer.wrap(getChunk(currChunkhandle, offset, 4)).getInt();
-				byte[] currPayload = getChunk(currChunkhandle, offset+8, size);
+				byte[] currPayload = getChunk(currChunkhandle, offset+12, size);
 				ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 				try {
 					if (payload != null) {
@@ -828,39 +768,82 @@ public class ChunkServer implements ChunkServerInterface {
 
 
 	public byte[] readLastRecord(String ChunkHandle, RID rid) {
-		byte[] numSlots = getChunk(ChunkHandle, 0, 4); 
-		int intNumSlots = ByteBuffer.wrap(numSlots).getInt();
-		if (intNumSlots == 0) {
-			return null; 
-		} else {
-			byte[] offset = getChunk(ChunkHandle, ChunkServer.ChunkSize - 4*intNumSlots, 4);
-			int intOffset = ByteBuffer.wrap(offset).getInt(); 
-			rid.setChunkHandle(ChunkHandle);
-			rid.setSlotNumber(intNumSlots);
-			RID prevRID = new RID();
-			if (intOffset == -1) {
-				byte[] payload = readPrevRecord(rid, prevRID);
-				rid.setChunkHandle(prevRID.getChunkHandle());
-				rid.setSlotNumber(prevRID.getSlotNumber());
-				return payload;
+		int numSlotsInFirstChunkHandle = ByteBuffer.wrap(getChunk(ChunkHandle, 0, 4)).getInt(); 
+		int currSlot = numSlotsInFirstChunkHandle;
+		boolean isFirstSlotFound = false;
+		while (!isFirstSlotFound) {
+			int offset = ByteBuffer.wrap(getChunk(ChunkHandle, ChunkServer.ChunkSize - 4*currSlot, 4)).getInt();
+			if (offset == -1) {
+				currSlot--;
+			} else {
+				isFirstSlotFound = true;
 			}
-			byte[] size = getChunk(ChunkHandle, intOffset, 4);
-			int intSize = ByteBuffer.wrap(size).getInt(); 
-			return getChunk(ChunkHandle, intOffset+4, intSize); 
+		}
+		
+		//entirety in current chunk
+		if (currSlot > 1) {
+			int offset = ByteBuffer.wrap(getChunk(ChunkHandle, ChunkServer.ChunkSize - 4*currSlot, 4)).getInt();
+			int size = ByteBuffer.wrap(getChunk(ChunkHandle, offset, 4)).getInt();
+			rid.setChunkHandle(ChunkHandle);
+			rid.setSlotNumber(currSlot);
+			return getChunk(ChunkHandle, offset+12, size); 
+		}
+		//keep seeking to next
+		else {
+			byte[] payload = null;
+			boolean recordHasPrevChunk = true;
+			String currChunkhandle = ChunkHandle; 
+			while (recordHasPrevChunk) {
+				int offset = -1;
+				int numSlots = getNumSlots(currChunkhandle); 
+				if (payload == null) {
+					offset = ByteBuffer.wrap(getChunk(currChunkhandle, ChunkServer.ChunkSize - 4, 4)).getInt();
+				} else {
+					offset = ByteBuffer.wrap(getChunk(currChunkhandle, ChunkServer.ChunkSize - 4*numSlots, 4)).getInt();
+				}
+				int size = ByteBuffer.wrap(getChunk(currChunkhandle, offset, 4)).getInt();
+				byte[] currPayload = getChunk(currChunkhandle, offset+12, size);
+				ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+				try {
+					if (payload != null) {
+						outputStream.write(payload);
+					}
+					outputStream.write(currPayload);
+					payload = outputStream.toByteArray();
+				} catch (IOException ioe) {
+					System.out.println(ioe.getMessage());
+					recordHasPrevChunk = false;
+				}
+				int prevChunk = ByteBuffer.wrap(getChunk(currChunkhandle, offset+8, 4)).getInt();
+				if (prevChunk == -1) {
+					recordHasPrevChunk = false;
+				} else {
+					currChunkhandle = "" + prevChunk; 
+				}
+			}
+			
+			if (currChunkhandle.equals(ChunkHandle)) {
+				rid.setChunkHandle(ChunkHandle);
+				rid.setSlotNumber(1);
+			} else {
+				rid.setChunkHandle(currChunkhandle);
+				int numSlots = getNumSlots(currChunkhandle);
+				rid.setSlotNumber(numSlots);
+			}
+			return payload; 
 		}
 	}
 	
 	public byte[] readNextRecord(RID rid, RID nextRid) {
 		String origChunkHandle = rid.getChunkHandle(); 
 		int numSlotsInCurrChunkHandle = ByteBuffer.wrap(getChunk(origChunkHandle, 0, 4)).getInt();
-		int startingSlotNumber = rid.getSlotNumber();
+		int startingSlotNumber = rid.getSlotNumber(); 
 		
 		//keep traversing until you find a non-deleted nextRid
 		boolean isNextRIDFound = false;
 		int nextSlot = startingSlotNumber + 1; 
 		while (!isNextRIDFound) {
 			if (nextSlot > numSlotsInCurrChunkHandle) {
-//				System.out.println("nothing here in " + rid); 
 				return null;
 			}
 			int offSet = ByteBuffer.wrap(getChunk(origChunkHandle, ChunkServer.ChunkSize - 4*nextSlot, 4)).getInt(); 
@@ -870,7 +853,6 @@ public class ChunkServer implements ChunkServerInterface {
 				isNextRIDFound = true;
 			}
 		}
-//		System.out.println("next slot is " + nextSlot);
 		
 		//if nextSlot isn't last slot just return the offset
 		//else keep checking all consecutive chunks
@@ -879,24 +861,20 @@ public class ChunkServer implements ChunkServerInterface {
 			int size = ByteBuffer.wrap(getChunk(origChunkHandle, offSet, 4)).getInt(); 
 			nextRid.setChunkHandle(origChunkHandle);
 			nextRid.setSlotNumber(nextSlot);
-			return getChunk(origChunkHandle, offSet+8, size); 
+			return getChunk(origChunkHandle, offSet+12, size); 
 		} else {
 			byte[] payload = null;
 			boolean recordHasNextChunk = true;
 			String currChunkHandle = origChunkHandle; 
 			while (recordHasNextChunk) {
 				int offset = -1; 
-				if (payload == null) {
-					
+				if (payload == null) {					
 					offset = ByteBuffer.wrap(getChunk(currChunkHandle, ChunkServer.ChunkSize - 4*nextSlot, 4)).getInt();
-//					System.out.println("at slot " + nextSlot + " with offset " + offset);
-				} else {
-					
+				} else {					
 					offset = ByteBuffer.wrap(getChunk(currChunkHandle, ChunkServer.ChunkSize - 4, 4)).getInt();
-//					System.out.println("at slot 1 with offset " + offset);
 				}
 				int size = ByteBuffer.wrap(getChunk(currChunkHandle, offset, 4)).getInt(); 
-				byte[] currPayload = getChunk(currChunkHandle, offset+8, size);
+				byte[] currPayload = getChunk(currChunkHandle, offset+12, size);
 				ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 				try {
 					if (payload != null) {
@@ -909,7 +887,6 @@ public class ChunkServer implements ChunkServerInterface {
 					recordHasNextChunk = false;
 				}
 				int nextChunk = ByteBuffer.wrap(getChunk(currChunkHandle, offset+4, 4)).getInt();
-//				System.out.println("Next chunk is " + nextChunk);
 				if (nextChunk == -1) {
 					recordHasNextChunk = false;
 				} else {
@@ -928,24 +905,74 @@ public class ChunkServer implements ChunkServerInterface {
 	}
 	
 	public byte[] readPrevRecord(RID rid, RID prevRid) {
-		String ChunkHandle = rid.getChunkHandle();
-		int slotNumber = rid.getSlotNumber();
-		if (slotNumber == 1) {
-			return null;
-		} else {
-			int nextSlotNumber = slotNumber-1;
-			byte[] offset = getChunk(ChunkHandle, ChunkServer.ChunkSize - 4*nextSlotNumber, 4);
-			int intOffset = ByteBuffer.wrap(offset).getInt(); 
-			if (intOffset == -1) {
-				rid.setSlotNumber(nextSlotNumber);
-				return readPrevRecord(rid, prevRid); 
-			} else {
-				prevRid.setChunkHandle(ChunkHandle);
-				prevRid.setSlotNumber(nextSlotNumber);
+		String origChunkHandle = rid.getChunkHandle(); 
+		int numSlotsInCurrChunkHandle = ByteBuffer.wrap(getChunk(origChunkHandle, 0, 4)).getInt();
+		int startingSlotNumber = rid.getSlotNumber(); 
+		
+		//keep traversing until you find a non-deleted nextRid
+		boolean isNextRIDFound = false;
+		int prevSlot = startingSlotNumber - 1; 
+		while (!isNextRIDFound) {
+			if (prevSlot == 0) {
+				return null;
 			}
-			byte[] size = getChunk(ChunkHandle, intOffset, 4);
-			int intSize = ByteBuffer.wrap(size).getInt(); 
-			return getChunk(ChunkHandle, intOffset+4, intSize); 
+			int offSet = ByteBuffer.wrap(getChunk(origChunkHandle, ChunkServer.ChunkSize - 4*prevSlot, 4)).getInt(); 
+			if (offSet == -1) {
+				prevSlot--;
+			} else {
+				isNextRIDFound = true;
+			}
+		}
+		
+		//if nextSlot isn't last slot just return the offset
+		//else keep checking all consecutive chunks
+		if (prevSlot > 1) {
+			int offSet = ByteBuffer.wrap(getChunk(origChunkHandle, ChunkServer.ChunkSize - 4*prevSlot, 4)).getInt();
+			int size = ByteBuffer.wrap(getChunk(origChunkHandle, offSet, 4)).getInt(); 
+			prevRid.setChunkHandle(origChunkHandle);
+			prevRid.setSlotNumber(prevSlot);
+			return getChunk(origChunkHandle, offSet+12, size); 
+		} else {
+			byte[] payload = null;
+			boolean recordHasPrevChunk = true;
+			String currChunkHandle = origChunkHandle; 
+			while (recordHasPrevChunk) {
+				int offset = -1; 
+				int numSlots = getNumSlots(currChunkHandle); 
+				if (payload == null) {					
+					offset = ByteBuffer.wrap(getChunk(currChunkHandle, ChunkServer.ChunkSize - 4, 4)).getInt();
+				} else {
+					offset = ByteBuffer.wrap(getChunk(currChunkHandle, ChunkServer.ChunkSize - 4*numSlots, 4)).getInt();
+				}
+				int size = ByteBuffer.wrap(getChunk(currChunkHandle, offset, 4)).getInt(); 
+				byte[] currPayload = getChunk(currChunkHandle, offset+12, size);
+				ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+				try {
+					if (payload != null) {
+						outputStream.write(payload);
+					}
+					outputStream.write(currPayload);
+					payload = outputStream.toByteArray();
+				} catch (IOException ioe) {
+					System.out.println(ioe.getMessage());
+					recordHasPrevChunk = false;
+				}
+				int prevChunk = ByteBuffer.wrap(getChunk(currChunkHandle, offset+8, 4)).getInt();
+				if (prevChunk == -1) {
+					recordHasPrevChunk = false;
+				} else {
+					currChunkHandle = "" + prevChunk;
+				}
+			}
+			if (currChunkHandle.equals(origChunkHandle)) {
+				prevRid.setChunkHandle(origChunkHandle);
+				prevRid.setSlotNumber(1);
+			} else {
+				prevRid.setChunkHandle(currChunkHandle);
+				int numSlots = getNumSlots(currChunkHandle);
+				prevRid.setSlotNumber(numSlots);
+			}
+			return payload; 
 		}
 	}
 

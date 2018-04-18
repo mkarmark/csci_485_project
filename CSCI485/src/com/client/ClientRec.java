@@ -35,30 +35,20 @@ public class ClientRec {
 		}
 		
 		// Get record ID of appended record
-//		System.out.println("Going to try to append to chunk " + ofh.getLastChunk());
-		Vector<RID> appendedRIDs = cs.appendRecord(ofh.getLastChunk(), payload);
+		Vector<RID> appendedRIDs = cs.appendRecord(ofh.getLastChunk(), payload, "-1");
 		
 		
 		RID firstRID = appendedRIDs.firstElement(); 
 		if (!ofh.getLastChunk().equals(firstRID.getChunkHandle())) {
 			ofh.appendChunk(firstRID.getChunkHandle()); 
 		}
-//		System.out.println("adding Chunk " + appendedRIDs.get(0).getChunkHandle() + " with num slots:  " + cs.getNumSlots(appendedRIDs.get(0).getChunkHandle()));
 		for (int i=1; i<appendedRIDs.size(); i++) {
-//			System.out.println("adding Chunk " + appendedRIDs.get(i).getChunkHandle() + " with num slots:  " + cs.getNumSlots(appendedRIDs.get(i).getChunkHandle()));
 			ofh.appendChunk(appendedRIDs.get(i).getChunkHandle());
 		}
-//		System.out.println("new last chunk is " + ofh.getLastChunk() + " with " + cs.getNumSlots(ofh.getLastChunk()) + " slots and an offset at " + cs.nextFreeOffset(ofh.getLastChunk()));
-		
+
 		// Deep copy into RecordID
 		RecordID.setChunkHandle(firstRID.getChunkHandle());
 		RecordID.setSlotNumber(firstRID.getSlotNumber());
-		
-//		// If a new chunk had to be created, add that to ofh
-//		if(!RecordID.getChunkHandle().equals(ofh.getLastChunk()))
-//		{
-//			ofh.appendChunk(RecordID.getChunkHandle());
-//		}
 		
 		return null;
 	}
