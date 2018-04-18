@@ -11,7 +11,7 @@ import com.client.RID;
  */
 public interface ChunkServerInterface {
 
-	public static final int ChunkSize = 1024 * 1024; //4 KB chunk sizes
+	public static final int ChunkSize = 1024 * 4; //4 KB chunk sizes
 	
 	/**
 	 * Return the chunkhandle for a newly created chunk.
@@ -34,13 +34,13 @@ public interface ChunkServerInterface {
 	 * Create an extra chunk if the last chunk does not have space
 	 * Returns RID the payload is on over which the byte payload was appended
 	 */
-	public RID appendRecord(String ChunkHandle, byte[] payload);
+	public Vector<RID> appendRecord(String ChunkHandle, byte[] payload);
 	
 	/**
 	 * Delete payload at slot number indicated in RID from ChunkHandle
 	 * returns true if success false otherwise
 	 */
-	public boolean deleteRecord(RID rid);
+	public boolean deleteRecord(RID rid, String FirstChunkHandle);
 	
 	/**
 	 * Return byte[] payload corresponding to first record

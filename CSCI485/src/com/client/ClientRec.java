@@ -1,6 +1,7 @@
 package com.client;
 
 import java.nio.ByteBuffer;
+import java.util.Vector;
 
 import com.chunkserver.ChunkServer;
 import com.client.ClientFS.FSReturnVals;
@@ -34,17 +35,30 @@ public class ClientRec {
 		}
 		
 		// Get record ID of appended record
-		RID appendedRID = cs.appendRecord(ofh.getLastChunk(), payload);
+//		System.out.println("Going to try to append to chunk " + ofh.getLastChunk());
+		Vector<RID> appendedRIDs = cs.appendRecord(ofh.getLastChunk(), payload);
+		
+		
+		RID firstRID = appendedRIDs.firstElement(); 
+		if (!ofh.getLastChunk().equals(firstRID.getChunkHandle())) {
+			ofh.appendChunk(firstRID.getChunkHandle()); 
+		}
+//		System.out.println("adding Chunk " + appendedRIDs.get(0).getChunkHandle() + " with num slots:  " + cs.getNumSlots(appendedRIDs.get(0).getChunkHandle()));
+		for (int i=1; i<appendedRIDs.size(); i++) {
+//			System.out.println("adding Chunk " + appendedRIDs.get(i).getChunkHandle() + " with num slots:  " + cs.getNumSlots(appendedRIDs.get(i).getChunkHandle()));
+			ofh.appendChunk(appendedRIDs.get(i).getChunkHandle());
+		}
+//		System.out.println("new last chunk is " + ofh.getLastChunk() + " with " + cs.getNumSlots(ofh.getLastChunk()) + " slots and an offset at " + cs.nextFreeOffset(ofh.getLastChunk()));
 		
 		// Deep copy into RecordID
-		RecordID.setChunkHandle(appendedRID.getChunkHandle());
-		RecordID.setSlotNumber(appendedRID.getSlotNumber());
+		RecordID.setChunkHandle(firstRID.getChunkHandle());
+		RecordID.setSlotNumber(firstRID.getSlotNumber());
 		
-		// If a new chunk had to be created, add that to ofh
-		if(!RecordID.getChunkHandle().equals(ofh.getLastChunk()))
-		{
-			ofh.appendChunk(RecordID.getChunkHandle());
-		}
+//		// If a new chunk had to be created, add that to ofh
+//		if(!RecordID.getChunkHandle().equals(ofh.getLastChunk()))
+//		{
+//			ofh.appendChunk(RecordID.getChunkHandle());
+//		}
 		
 		return null;
 	}
@@ -60,7 +74,7 @@ public class ClientRec {
 	public FSReturnVals DeleteRecord(FileHandle ofh, RID RecordID) {
 		// TODO: Check if RecordID is valid
 		// TODO: Check if ofh is valid
-		boolean status = cs.deleteRecord(RecordID);
+		boolean status = cs.deleteRecord(RecordID, ofh.getFirstChunk());
 		if (status) return FSReturnVals.Success;  
 		return null;
 	}
@@ -133,7 +147,9 @@ public class ClientRec {
 //		System.out.println("pivot: " + pivot);
 		RID rid = new RID(); 
 		byte[] payload = cs.readNextRecord(pivot, rid);
+//		System.out.println("Currently read " + pivot + " and next one is " + rid);
 		while (payload == null) {
+//			System.out.println("Gotta move on to next slot");
 			String ChunkHandle = pivot.getChunkHandle(); 
 			String newChunkHandle = ofh.getNextChunk(ChunkHandle); 
 			if (newChunkHandle == null) {
