@@ -482,6 +482,11 @@ public class Master {
        // TODO: Clear the log
 	}
 	
+	public void AddChunkToFilesSpace(String filePath, String ChunkHandle) {
+		FileHandle fh = OpenFile(filePath);
+		fh.appendChunk(ChunkHandle);
+	}
+	
 	/** Main function **/
 	public static void main(String [] args) {
 		// Put new ServerSocket() in a while loop incrementing by 1 in catch until 

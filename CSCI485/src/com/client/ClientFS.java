@@ -395,11 +395,11 @@ public class ClientFS {
 		} catch (ClassNotFoundException cnfe) {
 			System.out.println("In ClientFS createDir " + cnfe.getMessage());
 		}
-		FileHandle newfh = ofm.getFh();
+		
 		
 		// Deep copy results into given file handle
-		ofh.setChunks(newfh.getChunks());
-		ofh.setFilepath(newfh.getFilepath());
+		ofh.setChunks(ofm.getFh().getChunks());
+		ofh.setFilepath(ofm.getFh().getFilepath());
 		
 		return FSReturnVals.Success;
 	}

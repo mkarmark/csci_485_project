@@ -1,14 +1,85 @@
 package com.client;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.util.Scanner;
 import java.util.Vector;
 
 import com.chunkserver.ChunkServer;
 import com.client.ClientFS.FSReturnVals;
+import com.message.AppendChunkToFileSpaceMessage;
+import com.message.CreateDirMessage;
 
 public class ClientRec {
+	private ObjectInputStream csOis;
+	private ObjectOutputStream csOos;
+	private ObjectInputStream msOis;
+	private ObjectOutputStream msOos; 
 	
 	public static ChunkServer cs = new ChunkServer();
+	
+	public ClientRec() {
+		int port = 5959;
+		
+		// Get the port number
+		File portFile = new File("ChunkServerPort.txt");
+		Scanner scanner;
+		try {
+			scanner = new Scanner(portFile);
+			while(scanner.hasNext())
+			{
+				port = scanner.nextInt();
+			}
+			scanner.close();
+		} catch (FileNotFoundException e) {
+			System.out.println("port file not found");
+		}
+		
+		// Connect to the port
+		try {
+			System.out.println("Trying to connect to ChunkServer");
+			// TODO: Get IP address of master from file
+			Socket s = new Socket("localhost", port);
+			
+			csOis = new ObjectInputStream(s.getInputStream());
+			csOos = new ObjectOutputStream(s.getOutputStream());
+		} catch (IOException ioe) {
+			System.out.println("ioe in clientFS constructor: " + ioe.getMessage());
+		}
+		
+		port = 5858;
+		
+		// Get the port number
+		portFile = new File("MasterPort.txt");
+		try {
+			scanner = new Scanner(portFile);
+			while(scanner.hasNext())
+			{
+				port = scanner.nextInt();
+			}
+			scanner.close();
+		} catch (FileNotFoundException e) {
+			System.out.println("port file not found");
+		}
+		
+		// Connect to the port
+		try {
+			System.out.println("Trying to connect to Master");
+			// TODO: Get IP address of master from file
+			Socket s = new Socket("localhost", port);
+			
+			msOis = new ObjectInputStream(s.getInputStream());
+			msOos = new ObjectOutputStream(s.getOutputStream());
+		} catch (IOException ioe) {
+			System.out.println("ioe in clientFS constructor: " + ioe.getMessage());
+		}		
+		
+	}
 
 	/**
 	 * Appends a record to the open file as specified by ofh Returns BadHandle
@@ -32,6 +103,30 @@ public class ClientRec {
 		{
 			String ch = cs.initializeChunk();
 			ofh.appendChunk(ch);
+			AppendChunkToFileSpaceMessage actfsm = new AppendChunkToFileSpaceMessage(ofh.getFilepath(), ch);
+			try{
+				// Send the message
+				msOos.writeObject(actfsm);
+				msOos.flush();
+				
+				// Receive the response and cast
+				Object o = null;
+				o = msOis.readObject();
+				actfsm = (AppendChunkToFileSpaceMessage)o;
+				
+				// Reset both streams
+				msOos.reset();
+			} catch (IOException ioe) {
+				System.out.println("ioe in clientFS: "+ioe.getMessage());
+			} catch (ClassNotFoundException cnfe) {
+				System.out.println("In ClientFS createDir " + cnfe.getMessage());
+			}
+			
+			// Get error from message
+			boolean status = actfsm.IsStatus();
+			if (!status) {
+				System.out.println("clientRec has not properly communicated with master");
+			}		
 		}
 		
 		// Get record ID of appended record
@@ -41,9 +136,59 @@ public class ClientRec {
 		RID firstRID = appendedRIDs.firstElement(); 
 		if (!ofh.getLastChunk().equals(firstRID.getChunkHandle())) {
 			ofh.appendChunk(firstRID.getChunkHandle()); 
+			AppendChunkToFileSpaceMessage actfsm = new AppendChunkToFileSpaceMessage(ofh.getFilepath(), firstRID.getChunkHandle());
+			
+			try{
+				// Send the message
+				msOos.writeObject(actfsm);
+				msOos.flush();
+				
+				// Receive the response and cast
+				Object o = null;
+				o = msOis.readObject();
+				actfsm = (AppendChunkToFileSpaceMessage)o;
+				
+				// Reset both streams
+				msOos.reset();
+			} catch (IOException ioe) {
+				System.out.println("ioe in clientFS: "+ioe.getMessage());
+			} catch (ClassNotFoundException cnfe) {
+				System.out.println("In ClientFS createDir " + cnfe.getMessage());
+			}
+			
+			// Get error from message
+			boolean status = actfsm.IsStatus();
+			if (!status) {
+				System.out.println("clientRec has not properly communicated with master");
+			}		
 		}
 		for (int i=1; i<appendedRIDs.size(); i++) {
 			ofh.appendChunk(appendedRIDs.get(i).getChunkHandle());
+			AppendChunkToFileSpaceMessage actfsm = new AppendChunkToFileSpaceMessage(ofh.getFilepath(), appendedRIDs.get(i).getChunkHandle());
+			
+			try{
+				// Send the message
+				msOos.writeObject(actfsm);
+				msOos.flush();
+				
+				// Receive the response and cast
+				Object o = null;
+				o = msOis.readObject();
+				actfsm = (AppendChunkToFileSpaceMessage)o;
+				
+				// Reset both streams
+				msOos.reset();
+			} catch (IOException ioe) {
+				System.out.println("ioe in clientFS: "+ioe.getMessage());
+			} catch (ClassNotFoundException cnfe) {
+				System.out.println("In ClientFS createDir " + cnfe.getMessage());
+			}
+			
+			// Get error from message
+			boolean status = actfsm.IsStatus();
+			if (!status) {
+				System.out.println("clientRec has not properly communicated with master");
+			}
 		}
 
 		// Deep copy into RecordID

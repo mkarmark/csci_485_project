@@ -8,6 +8,7 @@ import java.util.Vector;
 
 import com.chunkserver.ChunkServer;
 import com.client.FileHandle;
+import com.message.AppendChunkToFileSpaceMessage;
 import com.message.CreateDirMessage;
 import com.message.CreateFileMessage;
 import com.message.DeleteDirMessage;
@@ -164,6 +165,22 @@ public class MasterThread extends Thread{
 					
 					// Write and flush
 					oos.writeObject(outOFM);
+				} else if (o instanceof AppendChunkToFileSpaceMessage) {
+					// Cast incoming message
+					AppendChunkToFileSpaceMessage actfsm = (AppendChunkToFileSpaceMessage)o;
+					
+					// Get parameters
+					String filePath = actfsm.GetFilePath();
+					String ChunkHandle = actfsm.GetChunkHandle();
+					
+					// Get result from Master
+					ms.AddChunkToFilesSpace(filePath, ChunkHandle);
+										
+					// Create outgoing message
+					AppendChunkToFileSpaceMessage outACTFSM = new AppendChunkToFileSpaceMessage(true);
+					
+					// Write and flush
+					oos.writeObject(outACTFSM);
 				}
 				oos.flush();
 				oos.reset();
