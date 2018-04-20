@@ -27,7 +27,8 @@ public class ChunkServer implements ChunkServerInterface {
 //	final static String filePath = "C:\\Users\\shahram\\Documents\\TinyFS-2\\csci485Disk\\"; // or C:\\newfile.txt
 	//final static String filePath = "/Users/Nandhini/Documents/CSCI485/NewFiles/";
 //	final static String filePath = "/Users/VarshiBachu/Documents/CSCI485/NewFiles";
-	final static String filePath = "C:\\Users\\mital\\Desktop\\csci485folder\\";
+//	final static String filePath = "C:\\Users\\mital\\Desktop\\csci485folder\\";
+	final static String filePath = "csci485\\"; 
 	public static long counter;
 	
 	private ObjectInputStream ois;

@@ -13,8 +13,15 @@ import java.util.Vector;
 import com.chunkserver.ChunkServer;
 import com.client.ClientFS.FSReturnVals;
 import com.message.AppendChunkToFileSpaceMessage;
+import com.message.AppendRecordMessage;
 import com.message.CreateDirMessage;
+import com.message.DeleteRecordMessage;
+import com.message.GetChunkMessage;
 import com.message.InitializeChunkMessage;
+import com.message.ReadFirstRecordMessage;
+import com.message.ReadLastRecordMessage;
+import com.message.ReadNextRecordMessage;
+import com.message.ReadPrevRecordMessage;
 
 public class ClientRec {
 	private ObjectInputStream csOis;
@@ -102,26 +109,26 @@ public class ClientRec {
 		// Initialize first chunk of file if needed (TODO: Via networking to ChunkServer)
 		if(ofh.getChunks().isEmpty())
 		{
-			String ch = cs.initializeChunk();
-//			InitializeChunkMessage icm = new InitializeChunkMessage(); 
-//			try {
-//				// Send the message
-//				csOos.writeObject(icm);
-//				csOos.flush();
-//				
-//				// Receive the response and cast
-//				Object o = null;
-//				o = csOis.readObject();
-//				icm = (InitializeChunkMessage)o;
-//				
-//				// Reset both streams
-//				csOos.reset();
-//			} catch (IOException ioe) {
-//				System.out.println("ioe in clientFS: "+ioe.getMessage());
-//			} catch (ClassNotFoundException cnfe) {
-//				System.out.println("In ClientFS createDir " + cnfe.getMessage());
-//			}
-//			String ch = icm.getChunkHandle(); 
+//			String ch = cs.initializeChunk();
+			InitializeChunkMessage icm = new InitializeChunkMessage(); 
+			try {
+				// Send the message
+				csOos.writeObject(icm);
+				csOos.flush();
+				
+				// Receive the response and cast
+				Object o = null;
+				o = csOis.readObject();
+				icm = (InitializeChunkMessage)o;
+				
+				// Reset both streams
+				csOos.reset();
+			} catch (IOException ioe) {
+				System.out.println("ioe in clientFS: "+ioe.getMessage());
+			} catch (ClassNotFoundException cnfe) {
+				System.out.println("In ClientFS createDir " + cnfe.getMessage());
+			}
+			String ch = icm.getChunkHandle(); 
 			
 			ofh.appendChunk(ch);
 			AppendChunkToFileSpaceMessage actfsm = new AppendChunkToFileSpaceMessage(ofh.getFilepath(), ch);
@@ -151,7 +158,7 @@ public class ClientRec {
 		}
 		
 		// Get record ID of appended record
-		Vector<RID> appendedRIDs = cs.appendRecord(ofh.getLastChunk(), payload, "-1");
+		Vector<RID> appendedRIDs = CommunicateAppendToCS(ofh.getLastChunk(), payload, "-1");
 		
 		
 		RID firstRID = appendedRIDs.firstElement(); 
@@ -230,7 +237,7 @@ public class ClientRec {
 	public FSReturnVals DeleteRecord(FileHandle ofh, RID RecordID) {
 		// TODO: Check if RecordID is valid
 		// TODO: Check if ofh is valid
-		boolean status = cs.deleteRecord(RecordID, ofh.getFirstChunk());
+		boolean status = CommunicateDeleteToCS(RecordID, ofh.getFirstChunk());
 		if (status) return FSReturnVals.Success;  
 		return null;
 	}
@@ -246,7 +253,7 @@ public class ClientRec {
 		
 		// Read first record from chunkserver
 		RID rid = new RID(); 
-		byte[] payload = cs.readFirstRecord(ofh.getFirstChunk(), rid);
+		byte[] payload = CommunicateReadFirstToCS(ofh.getFirstChunk(), rid);
 		rec.setPayload(payload);
 		rec.setRID(rid);
 		
@@ -273,7 +280,7 @@ public class ClientRec {
 
 		// Read last record from chunkserver
 		RID rid = new RID();
-		byte[] payload = cs.readLastRecord(ofh.getLastChunk(), rid);
+		byte[] payload = CommunicateReadLastToCS(ofh.getLastChunk(), rid);
 		rec.setPayload(payload);
 		rec.setRID(rid);
 		
@@ -302,7 +309,7 @@ public class ClientRec {
 		// Read next record from chunkserver
 //		System.out.println("pivot: " + pivot);
 		RID rid = new RID(); 
-		byte[] payload = cs.readNextRecord(pivot, rid);
+		byte[] payload = CommunicateReadNextToCS(pivot, rid);
 //		System.out.println("Currently read " + pivot + " and next one is " + rid);
 		while (payload == null) {
 //			System.out.println("Gotta move on to next slot");
@@ -313,7 +320,7 @@ public class ClientRec {
 			}
 			int slotNumber = 0;
 			RID newPivot = new RID(newChunkHandle, slotNumber);
-			payload = cs.readNextRecord(newPivot, rid);
+			payload = CommunicateReadNextToCS(newPivot, rid);
 		}
 		if(payload == null)
 		{
@@ -341,17 +348,38 @@ public class ClientRec {
 
 		// Read previous record from chunkserver
 		RID rid = new RID();
-		byte[] payload = cs.readPrevRecord(pivot, rid);
+		byte[] payload = CommunicateReadPrevToCS(pivot, rid);
 		while (payload == null) {
 			String ChunkHandle = pivot.getChunkHandle();
 			String prevChunkHandle = ofh.getPrevChunk(ChunkHandle);
 			if (prevChunkHandle == null) {
 				break;
+			}			
+			
+			//byte[] bytesNumSlotsInPrevFile = cs.getChunk(prevChunkHandle, 0, 4);
+			
+			GetChunkMessage gcm = new GetChunkMessage(prevChunkHandle, 0, 4);
+			try {
+				// Send the message
+				csOos.writeObject(gcm);
+				csOos.flush();
+				
+				// Receive the response and cast
+				Object o = null;
+				o = csOis.readObject();
+				gcm = (GetChunkMessage)o;
+				
+				// Reset both streams
+				csOos.reset();
+			} catch (IOException ioe) {
+				System.out.println("ioe in clientRec: "+ioe.getMessage());
+			} catch (ClassNotFoundException cnfe) {
+				System.out.println("In ClientRec ReadPrevRecord " + cnfe.getMessage());
 			}
-			byte[] bytesNumSlotsInPrevFile = cs.getChunk(prevChunkHandle, 0, 4);
+			byte[] bytesNumSlotsInPrevFile = gcm.getPayload(); 
 			int intNumSlotsInPrevFile = ByteBuffer.wrap(bytesNumSlotsInPrevFile).getInt();
 			RID newPivot = new RID(prevChunkHandle, intNumSlotsInPrevFile+1);
-			payload = cs.readPrevRecord(newPivot, rid);
+			payload = CommunicateReadPrevToCS(newPivot, rid); 
 		}
 		
 		if(payload == null)
@@ -368,4 +396,148 @@ public class ClientRec {
 		return null;
 	}
 
+	private Vector<RID> CommunicateAppendToCS(String chunkHandle, byte[] payload, String previousChunkHandle) {
+		AppendRecordMessage arm = new AppendRecordMessage(chunkHandle, payload, previousChunkHandle);
+		try {
+			// Send the message
+			csOos.writeObject(arm);
+			csOos.flush();
+			
+			// Receive the response and cast
+			Object o = null;
+			o = csOis.readObject();
+			arm = (AppendRecordMessage)o;
+			
+			// Reset both streams
+			csOos.reset();
+		} catch (IOException ioe) {
+			System.out.println("ioe in clientRec: "+ioe.getMessage());
+		} catch (ClassNotFoundException cnfe) {
+			System.out.println("In ClientRec CommunicateAppendToCS " + cnfe.getMessage());
+		}
+		return arm.getRids(); 
+	}
+	
+	private boolean CommunicateDeleteToCS(RID rid, String firstChunkHandle) {
+		DeleteRecordMessage drm = new DeleteRecordMessage(rid, firstChunkHandle);
+		try {
+			// Send the message
+			csOos.writeObject(drm);
+			csOos.flush();
+			
+			// Receive the response and cast
+			Object o = null;
+			o = csOis.readObject();
+			drm = (DeleteRecordMessage)o;
+			
+			// Reset both streams
+			csOos.reset();
+		} catch (IOException ioe) {
+			System.out.println("ioe in clientRec: "+ioe.getMessage());
+		} catch (ClassNotFoundException cnfe) {
+			System.out.println("In ClientRec CommunicateAppendToCS " + cnfe.getMessage());
+		}
+		return drm.isDeleted(); 
+	}
+	
+	private byte[] CommunicateReadFirstToCS(String ChunkHandle, RID rid) {
+		ReadFirstRecordMessage rfrm = new ReadFirstRecordMessage(ChunkHandle, rid);
+		try {
+			// Send the message
+			csOos.writeObject(rfrm);
+			csOos.flush();
+			
+			// Receive the response and cast
+			Object o = null;
+			o = csOis.readObject();
+			rfrm = (ReadFirstRecordMessage)o;
+			
+			// Reset both streams
+			csOos.reset();
+		} catch (IOException ioe) {
+			System.out.println("ioe in clientRec: "+ioe.getMessage());
+		} catch (ClassNotFoundException cnfe) {
+			System.out.println("In ClientRec CommunicateAppendToCS " + cnfe.getMessage());
+		}
+		rid.setChunkHandle(rfrm.getRid().getChunkHandle());
+		rid.setSlotNumber(rfrm.getRid().getSlotNumber());
+		return rfrm.getPayload();  
+	}
+	
+	private byte[] CommunicateReadLastToCS(String ChunkHandle, RID rid) {
+		ReadLastRecordMessage rlrm = new ReadLastRecordMessage(ChunkHandle, rid);
+		try {
+			// Send the message
+			csOos.writeObject(rlrm);
+			csOos.flush();
+			
+			// Receive the response and cast
+			Object o = null;
+			o = csOis.readObject();
+			rlrm = (ReadLastRecordMessage)o;
+			
+			// Reset both streams
+			csOos.reset();
+		} catch (IOException ioe) {
+			System.out.println("ioe in clientRec: "+ioe.getMessage());
+		} catch (ClassNotFoundException cnfe) {
+			System.out.println("In ClientRec CommunicateAppendToCS " + cnfe.getMessage());
+		}
+		rid.setChunkHandle(rlrm.getRid().getChunkHandle());
+		rid.setSlotNumber(rlrm.getRid().getSlotNumber());
+		return rlrm.getPayload();  
+	}
+	
+	private byte[] CommunicateReadNextToCS(RID rid, RID nextRid) {
+		ReadNextRecordMessage rnrm = new ReadNextRecordMessage(rid, nextRid);
+		try {
+			// Send the message
+			csOos.writeObject(rnrm);
+			csOos.flush();
+			
+			// Receive the response and cast
+			Object o = null;
+			o = csOis.readObject();
+			rnrm = (ReadNextRecordMessage)o;
+			
+			// Reset both streams
+			csOos.reset();
+		} catch (IOException ioe) {
+			System.out.println("ioe in clientRec: "+ioe.getMessage());
+		} catch (ClassNotFoundException cnfe) {
+			System.out.println("In ClientRec CommunicateAppendToCS " + cnfe.getMessage());
+		}
+		rid.setChunkHandle(rnrm.getRid().getChunkHandle());
+		rid.setSlotNumber(rnrm.getRid().getSlotNumber());
+		nextRid.setChunkHandle(rnrm.getNextRid().getChunkHandle());
+		nextRid.setSlotNumber(rnrm.getNextRid().getSlotNumber());
+		return rnrm.getPayload();  
+	}
+	
+	private byte[] CommunicateReadPrevToCS(RID rid, RID prevRid) {
+		ReadPrevRecordMessage rprm = new ReadPrevRecordMessage(rid, prevRid);
+		
+		try {
+			// Send the message
+			csOos.writeObject(rprm);
+			csOos.flush();
+			
+			// Receive the response and cast
+			Object o = null;
+			o = csOis.readObject();
+			rprm = (ReadPrevRecordMessage)o;
+			
+			// Reset both streams
+			csOos.reset();
+		} catch (IOException ioe) {
+			System.out.println("ioe in clientRec: "+ioe.getMessage());
+		} catch (ClassNotFoundException cnfe) {
+			System.out.println("In ClientRec CommunicateAppendToCS " + cnfe.getMessage());
+		}
+		rid.setChunkHandle(rprm.getRid().getChunkHandle());
+		rid.setSlotNumber(rprm.getRid().getSlotNumber());
+		prevRid.setChunkHandle(rprm.getPrevRid().getChunkHandle());
+		prevRid.setSlotNumber(rprm.getPrevRid().getSlotNumber());
+		return rprm.getPayload();  
+	}
 }

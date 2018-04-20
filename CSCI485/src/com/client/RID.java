@@ -1,6 +1,10 @@
 package com.client;
 
-public class RID {
+import java.io.Serializable;
+
+public class RID implements Serializable {
+	private static final long serialVerisionUID = 1;
+	
 	private String ChunkHandle;
 	private int slotNumber; 
 	
