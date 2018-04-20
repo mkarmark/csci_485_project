@@ -14,6 +14,7 @@ import com.chunkserver.ChunkServer;
 import com.client.ClientFS.FSReturnVals;
 import com.message.AppendChunkToFileSpaceMessage;
 import com.message.CreateDirMessage;
+import com.message.InitializeChunkMessage;
 
 public class ClientRec {
 	private ObjectInputStream csOis;
@@ -102,6 +103,26 @@ public class ClientRec {
 		if(ofh.getChunks().isEmpty())
 		{
 			String ch = cs.initializeChunk();
+//			InitializeChunkMessage icm = new InitializeChunkMessage(); 
+//			try {
+//				// Send the message
+//				csOos.writeObject(icm);
+//				csOos.flush();
+//				
+//				// Receive the response and cast
+//				Object o = null;
+//				o = csOis.readObject();
+//				icm = (InitializeChunkMessage)o;
+//				
+//				// Reset both streams
+//				csOos.reset();
+//			} catch (IOException ioe) {
+//				System.out.println("ioe in clientFS: "+ioe.getMessage());
+//			} catch (ClassNotFoundException cnfe) {
+//				System.out.println("In ClientFS createDir " + cnfe.getMessage());
+//			}
+//			String ch = icm.getChunkHandle(); 
+			
 			ofh.appendChunk(ch);
 			AppendChunkToFileSpaceMessage actfsm = new AppendChunkToFileSpaceMessage(ofh.getFilepath(), ch);
 			try{
