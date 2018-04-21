@@ -513,6 +513,7 @@ public class Master {
 			try
 			{
 				ss = new ServerSocket(port);
+				System.out.println("Master's IP address is " + ss.getInetAddress().getLocalHost() + " and port is " + ss.getLocalPort()); 
 				// TODO: Write IP address out to file
 				// Write port number out to file
 				BufferedWriter writer;
