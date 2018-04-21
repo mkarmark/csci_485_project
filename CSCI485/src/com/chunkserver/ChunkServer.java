@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.RandomAccessFile;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.ByteBuffer;
@@ -22,13 +23,16 @@ import com.client.RID;
 import com.interfaces.ChunkServerInterface;
 import com.master.Master;
 import com.master.MasterThread;
+import com.message.AppendChunkToFileSpaceMessage;
+import com.message.ChunkServerIdentityMessage;
+import com.message.InformMasterOfChunkMessage;
 
 public class ChunkServer implements ChunkServerInterface {
 //	final static String filePath = "C:\\Users\\shahram\\Documents\\TinyFS-2\\csci485Disk\\"; // or C:\\newfile.txt
 	//final static String filePath = "/Users/Nandhini/Documents/CSCI485/NewFiles/";
-//	final static String filePath = "/Users/VarshiBachu/Documents/CSCI485/NewFiles";
+	final static String filePath = "/Users/VarshiBachu/Documents/CSCI485/NewFiles";
 //	final static String filePath = "C:\\Users\\mital\\Desktop\\csci485folder\\";
-	final static String filePath = "csci485\\"; 
+	//final static String filePath = "csci485\\"; 
 	public static long counter;
 	
 	private ObjectInputStream ois;
@@ -36,6 +40,8 @@ public class ChunkServer implements ChunkServerInterface {
 	
 	// TO DELETE:
 	public static int NumAppendsCalled = 0;
+	
+	private int id;
 	
 	public Master ms; 
 
@@ -81,17 +87,47 @@ public class ChunkServer implements ChunkServerInterface {
 		}
 		
 		// Connect to the port
+		InetAddress sIP = null;
+//		int sPort = 0;
+		
 		try {
 			System.out.println("Trying to connect to Master");
 			// TODO: Get IP address of master from file
 			Socket s = new Socket("localhost", port);
-			
+//			sIP = s.getInetAddress();
+//			sPort = s.getPort();
 			ois = new ObjectInputStream(s.getInputStream());
 			oos = new ObjectOutputStream(s.getOutputStream());
 		} catch (IOException ioe) {
 			System.out.println("ioe in clientFS constructor: " + ioe.getMessage());
 		}
+		 
+	}
+	
+	public void SendLocationToMaster(Location l)
+	{
+		ChunkServerIdentityMessage csim = new ChunkServerIdentityMessage(l);
+		
+		try{
+			// Send the message
+			oos.writeObject(csim);
+			oos.flush();
 			
+			// Receive the response and cast
+			Object o = null;
+			o = ois.readObject();
+			csim = (ChunkServerIdentityMessage)o;
+			
+			// Reset both streams
+			oos.reset();
+		} catch (IOException ioe) {
+			System.out.println("ioe in clientFS: "+ioe.getMessage());
+		} catch (ClassNotFoundException cnfe) {
+			System.out.println("In ClientFS createDir " + cnfe.getMessage());
+		}
+		
+		id = csim.getChunkServerID();
+		
 	}
 
 
@@ -137,6 +173,19 @@ public class ChunkServer implements ChunkServerInterface {
 		} catch (IOException ex) {
 			
 		}	
+		
+		InformMasterOfChunkMessage imocm = new InformMasterOfChunkMessage(id, chunkHandle);
+		
+		try{
+			// Send the message
+			oos.writeObject(imocm);
+			oos.flush();
+			
+			// Reset both streams
+			oos.reset();
+		} catch (IOException ioe) {
+			System.out.println("ioe in clientFS: "+ioe.getMessage());
+		} 
 		
 //		ms.AddChunkToFilesSpace(chunkHandle, ChunkHandle);
 		return String.valueOf(counter);
@@ -695,6 +744,7 @@ public class ChunkServer implements ChunkServerInterface {
 			try
 			{
 				ss = new ServerSocket(port);
+				
 				// TODO: Write IP address out to file
 				// Write port number out to file
 				BufferedWriter writer;
@@ -705,6 +755,13 @@ public class ChunkServer implements ChunkServerInterface {
 				} catch (IOException e1) {
 					e1.printStackTrace();
 				}
+				
+				// TODO: Figure out what the IP address is
+				// Tell master what the IP address and port of the server is
+				Location l = new Location(ss.getInetAddress(), ss.getLocalPort());
+				// IP address of this system
+				//System.out.println(InetAddress.getLocalHost());
+				cs.SendLocationToMaster(l);
 				
 				// Loop to accept connections
 				while(true) {

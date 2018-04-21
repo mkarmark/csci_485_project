@@ -7,17 +7,24 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Scanner;
 import java.util.Vector;
 
 import com.chunkserver.ChunkServer;
+import com.chunkserver.Location;
 import com.client.FileHandle;
 
 public class Master {
 	public static String log = "log.txt";
 	public static HashSet<String> namespace; // Maintains all of the directories
 	public static HashSet<FileHandle> filespace;
+	
+	private int numChunkServers = 0;
+	
+	private HashMap<Integer, Location> chunkServerLocations;
+	private HashMap<Integer, Vector<String>> chunkServerChunks; 
 	
 	/**
 	 * Constructor
@@ -35,6 +42,9 @@ public class Master {
 		
 		// Check if the filespace exists on disk
 		CheckFilespace();
+		
+		chunkServerLocations = new HashMap<Integer, Location>();
+		chunkServerChunks = new HashMap<Integer, Vector<String>>(); 
 	}
 	
 	/**Create directory
@@ -528,4 +538,16 @@ public class Master {
 		}
 	}
 
+	public int AddChunkServer(Location location) {
+		numChunkServers++;
+		chunkServerLocations.put(numChunkServers, location);
+		Vector<String> chunkHandles = new Vector<String>();
+		chunkServerChunks.put(numChunkServers, chunkHandles);
+		System.out.println("Chunk Server " + numChunkServers + " at location " + location);
+		return numChunkServers;
+	}
+	
+	public void AddChunkHandleToChunkServer(int chunkServer, String ChunkHandle) {
+		chunkServerChunks.get(chunkServer).add(ChunkHandle);
+	}
 }

@@ -7,13 +7,16 @@ import java.net.Socket;
 import java.util.Vector;
 
 import com.chunkserver.ChunkServer;
+import com.chunkserver.Location;
 import com.client.FileHandle;
 import com.message.AppendChunkToFileSpaceMessage;
+import com.message.ChunkServerIdentityMessage;
 import com.message.CreateDirMessage;
 import com.message.CreateFileMessage;
 import com.message.DeleteDirMessage;
 import com.message.DeleteFileMessage;
 import com.message.FilePathExistsMessage;
+import com.message.InformMasterOfChunkMessage;
 import com.message.ListDirMessage;
 import com.message.OpenFileMessage;
 import com.message.RenameDirMessage;
@@ -181,6 +184,32 @@ public class MasterThread extends Thread{
 					
 					// Write and flush
 					oos.writeObject(outACTFSM);
+				} else if (o instanceof ChunkServerIdentityMessage) {
+					// Cast incoming message
+					ChunkServerIdentityMessage csim = (ChunkServerIdentityMessage)o;
+					
+					// Get parameters
+					Location l = csim.getLocation();
+					
+					// Get result from Master
+					int id = ms.AddChunkServer(l);
+										
+					// Create outgoing message
+					ChunkServerIdentityMessage outCSIM = new ChunkServerIdentityMessage(id);
+					
+					// Write and flush
+					oos.writeObject(outCSIM);
+				} else if (o instanceof InformMasterOfChunkMessage) {
+					// Cast incoming message
+					InformMasterOfChunkMessage imocm = (InformMasterOfChunkMessage)o;
+					
+					// Get parameters
+					int id = imocm.getChunkServerID();
+					String chunkHandle = imocm.getChunkHandle();
+					
+					// Get result from Master
+					ms.AddChunkHandleToChunkServer(id, chunkHandle);
+									
 				}
 				oos.flush();
 				oos.reset();
