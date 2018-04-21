@@ -30,9 +30,9 @@ import com.message.InformMasterOfChunkMessage;
 public class ChunkServer implements ChunkServerInterface {
 //	final static String filePath = "C:\\Users\\shahram\\Documents\\TinyFS-2\\csci485Disk\\"; // or C:\\newfile.txt
 	//final static String filePath = "/Users/Nandhini/Documents/CSCI485/NewFiles/";
-	final static String filePath = "/Users/VarshiBachu/Documents/CSCI485/NewFiles";
+	//final static String filePath = "/Users/VarshiBachu/Documents/CSCI485/NewFiles";
 //	final static String filePath = "C:\\Users\\mital\\Desktop\\csci485folder\\";
-	//final static String filePath = "csci485\\"; 
+	final static String filePath = "csci485\\"; 
 	public static long counter;
 	
 	private ObjectInputStream ois;
@@ -74,13 +74,15 @@ public class ChunkServer implements ChunkServerInterface {
 		}
 		
 		int port = 5858; 
+		String ipAddress = "";
 		File portFile = new File("MasterPort.txt");
 		try {
 			scanner = new Scanner(portFile);
-			while(scanner.hasNext())
-			{
-				port = scanner.nextInt();
-			}
+			
+			ipAddress = scanner.nextLine();
+			port = scanner.nextInt();
+			System.out.println("ipAddress: " + ipAddress + "  port: " + port);
+			
 			scanner.close();
 		} catch (FileNotFoundException e) {
 			System.out.println("port file not found");
@@ -89,11 +91,11 @@ public class ChunkServer implements ChunkServerInterface {
 		// Connect to the port
 		InetAddress sIP = null;
 //		int sPort = 0;
-		
+				
 		try {
 			System.out.println("Trying to connect to Master");
 			// TODO: Get IP address of master from file
-			Socket s = new Socket("localhost", port);
+			Socket s = new Socket(ipAddress, port);
 //			sIP = s.getInetAddress();
 //			sPort = s.getPort();
 			ois = new ObjectInputStream(s.getInputStream());
@@ -758,7 +760,7 @@ public class ChunkServer implements ChunkServerInterface {
 				
 				// TODO: Figure out what the IP address is
 				// Tell master what the IP address and port of the server is
-				Location l = new Location(ss.getInetAddress(), ss.getLocalPort());
+				Location l = new Location(ss.getInetAddress().getLocalHost(), ss.getLocalPort());
 				// IP address of this system
 				//System.out.println(InetAddress.getLocalHost());
 				cs.SendLocationToMaster(l);
