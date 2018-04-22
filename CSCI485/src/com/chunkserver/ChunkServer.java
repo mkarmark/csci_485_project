@@ -73,14 +73,17 @@ public class ChunkServer implements ChunkServerInterface {
 			
 		}
 		
+		// Read in master IP and port from file
 		int port = 5858; 
 		String ipAddress = "";
 		File portFile = new File("MasterPort.txt");
 		try {
 			scanner = new Scanner(portFile);
 			
+			// First line is IP next is port
 			ipAddress = scanner.nextLine();
 			port = scanner.nextInt();
+			
 			System.out.println("ipAddress: " + ipAddress + "  port: " + port);
 			
 			scanner.close();
@@ -88,20 +91,15 @@ public class ChunkServer implements ChunkServerInterface {
 			System.out.println("port file not found");
 		}
 		
-		// Connect to the port
-		InetAddress sIP = null;
-//		int sPort = 0;
-				
+		// Connect to Master
 		try {
 			System.out.println("Trying to connect to Master");
-			// TODO: Get IP address of master from file
 			Socket s = new Socket(ipAddress, port);
-//			sIP = s.getInetAddress();
-//			sPort = s.getPort();
+
 			ois = new ObjectInputStream(s.getInputStream());
 			oos = new ObjectOutputStream(s.getOutputStream());
 		} catch (IOException ioe) {
-			System.out.println("ioe in clientFS constructor: " + ioe.getMessage());
+			System.out.println("ioe in ChunkServer constructor: " + ioe.getMessage());
 		}
 		 
 	}

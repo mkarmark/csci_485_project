@@ -7,9 +7,13 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.InputMismatchException;
+import java.util.List;
 import java.util.Scanner;
+import java.util.Set;
 import java.util.Vector;
 
 import com.chunkserver.ChunkServer;
@@ -17,14 +21,18 @@ import com.chunkserver.Location;
 import com.client.FileHandle;
 
 public class Master {
-	public static String log = "log.txt";
+	public static String log = "logs\\log.txt";
+	public static String logPath = "logs\\";
 	public static HashSet<String> namespace; // Maintains all of the directories
 	public static HashSet<FileHandle> filespace;
 	
 	private int numChunkServers = 0;
 	
 	private HashMap<Integer, Location> chunkServerLocations;
-	private HashMap<Integer, Vector<String>> chunkServerChunks; 
+	private HashMap<Integer, Vector<String>> chunkServerChunks;
+	private HashMap<String, Vector<String>> chunkIPToChunks;
+	
+	private int ticks = 0;
 	
 	/**
 	 * Constructor
@@ -45,6 +53,13 @@ public class Master {
 		
 		chunkServerLocations = new HashMap<Integer, Location>();
 		chunkServerChunks = new HashMap<Integer, Vector<String>>(); 
+		chunkIPToChunks = new HashMap<String, Vector<String>>();
+		
+		// Check if chunkspace exists on disk
+		CheckChunkspace();
+		
+		// Update from Log
+		UpdateFromLog();
 	}
 	
 	/**Create directory
@@ -81,6 +96,9 @@ public class Master {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+		
+		// Increment ticks 
+		Tick();
 		
 		return 0;
 	}
@@ -135,6 +153,9 @@ public class Master {
 			e.printStackTrace();
 		}
 		
+		// Increment ticks
+		Tick();
+		
 		return 0;
 	}
 	
@@ -178,7 +199,7 @@ public class Master {
 			namespace.remove(dir);
 		}
 		
-		// TODO: Write to log
+		// Write to log
 		BufferedWriter out = null;
 		try {
 			// The true at the end is so that we just add to the end of the log
@@ -190,6 +211,9 @@ public class Master {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+		
+		// Increment Ticks
+		Tick();
 		
 		return 0;
 	}
@@ -265,6 +289,9 @@ public class Master {
 			e.printStackTrace();
 		}
 		
+		// Increment ticks
+		Tick();
+		
 		// Success
 		return 0;
 	}
@@ -307,6 +334,9 @@ public class Master {
 			e.printStackTrace();
 		}
 		
+		// Increment Ticks
+		Tick();
+		
 		// Success
 		return 0;
 	}
@@ -347,7 +377,7 @@ public class Master {
 		return false;
 	}
 	
-	/** Code to write namespace to file **/
+	/** Code to Log **/
 	
 	/**
 	 * Check if a namespace.txt exists on disk
@@ -356,7 +386,7 @@ public class Master {
 	public void CheckNamespace()
 	{
 		// Check if a namespace file exists and read all directories from it
-		File nsp = new File("namespace.txt");
+		File nsp = new File(logPath+"namespace.txt");
 		Scanner scanner;
 		try {
 			scanner = new Scanner(nsp);
@@ -379,10 +409,10 @@ public class Master {
 	public void CheckFilespace()
 	{
 		// Check if a namespace file exists and read all directories from it
-		File nfp = new File("filespace.txt");
+		File fspc = new File(logPath+"filespace.txt");
 		Scanner scanner;
 		try {
-			scanner = new Scanner(nfp);
+			scanner = new Scanner(fspc);
 			while(scanner.hasNext())
 			{
 				// Create a new FileHandle
@@ -391,8 +421,14 @@ public class Master {
 				// Get the filepath
 				newfh.setFilepath(scanner.nextLine());
 				
+				if(!scanner.hasNextLine())
+				{
+					break;
+				}
+				
 				// Get the number of chunk handles
 				int numChunks = scanner.nextInt();
+				scanner.nextLine();
 				
 				// Get each chunk handle
 				for(int i=0; i<numChunks; i++)
@@ -410,18 +446,60 @@ public class Master {
 	}
 	
 	/**
+	 * Check if a chunkspace.txt exists on disk
+	 * chunkspace is set up as a IP followed by the number of 
+	 * chunkhandles followed by the chunkhandles each on a new line
+	 */
+	public void CheckChunkspace()
+	{
+		// Check if a chunkspace file exists and read all chunks from it
+		File chunkspace = new File(logPath+"chunkspace.txt");
+		Scanner scanner;
+		try {
+			scanner = new Scanner(chunkspace);
+			while(scanner.hasNext())
+			{
+				// Get the IP address (as XXX.XXX.XXX.XXX)
+				String ip = scanner.nextLine();
+				
+				if(!scanner.hasNextLine())
+				{
+					break;
+				}
+				
+				// Get the number of chunk handles
+				int numChunks = scanner.nextInt();
+				scanner.nextLine();
+				
+				// Get each chunk handle
+				Vector<String> chunkHandles = new Vector<String>();
+				for(int i=0; i<numChunks; i++)
+				{
+					chunkHandles.add(scanner.nextLine());
+				}
+				
+				// Add this information to chunkIPToChunks
+				chunkIPToChunks.put(ip, chunkHandles);
+			}
+			scanner.close();
+		} catch (FileNotFoundException e) {
+			// If the file doesn't exist, do nothing
+		}
+	}
+	
+	/**
 	 * Write the namespace to a file by first creating a new file, 
 	 * then deleting the old and renaming the new
 	 */
 	public void WriteNamespaceToDisk()
 	{
 		// Create a new namespace to not overwrite the old one
-		File newNamespace = new File("newnamespace.txt");
+		File newNamespace = new File(logPath+"newnamespace.txt");
 		
 		// Write namespace out to this new file
 		BufferedWriter out = null;
 		try {
-			out = new BufferedWriter(new FileWriter("newnamespace.txt"));
+			out = new BufferedWriter(new FileWriter(logPath+"newnamespace.txt"));
 			for(String dir : namespace)
 			{
 				out.write(dir);
@@ -434,7 +512,7 @@ public class Master {
 		}
 		
 		// Delete the old namespace and rename this new one
-       File oldnamespace = new File("namespace.txt");
+       File oldnamespace = new File(logPath+"namespace.txt");
        oldnamespace.delete();
        newNamespace.renameTo(oldnamespace);
        
@@ -451,12 +529,12 @@ public class Master {
 	public void WriteFilespaceToDisk()
 	{
 		// Create a new namespace to not overwrite the old one
-		File newFilespace = new File("newfilespace.txt");
+		File newFilespace = new File(logPath+"newfilespace.txt");
 		
 		// Write namespace out to this new file
 		BufferedWriter out = null;
 		try {
-			out = new BufferedWriter(new FileWriter("newfilespace.txt"));
+			out = new BufferedWriter(new FileWriter(logPath+"newfilespace.txt"));
 			for(FileHandle fh : filespace)
 			{
 				// First write filepath
@@ -485,22 +563,257 @@ public class Master {
 		}
 		
 		// Delete the old namespace and rename this new one
-       File oldfilespace = new File("filespace.txt");
+       File oldfilespace = new File(logPath+"filespace.txt");
        oldfilespace.delete();
        newFilespace.renameTo(oldfilespace);
        
        // TODO: Clear the log
 	}
 	
+	/**
+	 * Writes the relationship between ChunkServer and chunk to file as:
+	 * ChunkServer IP (not port because that can change)
+	 * number of chunks (int)
+	 * chunkhandle1 (String)
+	 */
+	public void WriteChunkSpaceToDisk()
+	{
+		// Create a new chunkspace to not overwrite the old one
+		File newChunkspace = new File(logPath+"newchunkspace.txt");
+		
+		// Write chunkspace out to this new file
+		BufferedWriter out = null;
+		try {
+			out = new BufferedWriter(new FileWriter(logPath+"newchunkspace.txt"));
+			
+			// Loop through each ChunkServer
+			Set<Integer> csIDs = chunkServerLocations.keySet();
+			for(int csID : csIDs)
+			{
+				// Get the ChunkServer's location and write it to file
+				Location loc = chunkServerLocations.get(csID);
+				out.write(loc.getIp().toString());
+				out.newLine();
+				
+				// Get the Vector of chunks
+				Vector<String> chunks = chunkServerChunks.get(csID);
+				int numChunks = chunks.size();
+				
+				// Write number of chunks
+				out.write(""+numChunks);
+				out.newLine();
+				
+				// Write each of the chunks in order
+				for(int i=0; i<numChunks; i++)
+				{
+					out.write(chunks.get(i));
+					out.newLine();
+				}
+				out.flush();
+			}
+			out.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+		// Delete the old chunkspace and rename this new one
+       File oldchunkspace = new File(logPath+"chunkspace.txt");
+       oldchunkspace.delete();
+       newChunkspace.renameTo(oldchunkspace);
+       
+       // TODO: Clear the log
+	}
+	
+	/**
+	 * Checkpoint and write to disk every 100 ticks
+	 */
+	public void Tick() {
+		// Increment Ticks
+		ticks++;
+		
+		if(ticks%10 != 0)
+		{
+			return;
+		}
+		
+		// Write checkpoint to log
+		BufferedWriter out = null;
+		try {
+			// The true at the end is so that we just add to the end of the log
+			out = new BufferedWriter(new FileWriter(log,true));
+			out.write("Checkpoint");
+			out.newLine();
+			out.flush();
+			out.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+		WriteNamespaceToDisk();
+		WriteFilespaceToDisk();
+		WriteChunkSpaceToDisk();
+	}
+	
+	public void UpdateFromLog()
+	{
+		// Read log into array of strings representing commands
+		File lg = new File(log);
+		Scanner scanner;
+		List<String> commands = new ArrayList<>();
+		
+		try {
+			scanner = new Scanner(lg);
+			while(scanner.hasNextLine())
+			{
+				String cmd = scanner.nextLine();
+				
+				// Clear the array list at a checkpoint
+				if(cmd.equals("Checkpoint"))
+				{
+					commands.clear();
+				} 
+				else 
+				{
+					commands.add(cmd);
+				}
+			}
+			scanner.close();
+		} catch (FileNotFoundException e) {
+			// If the file doesn't exist, do nothing
+		}
+		
+		// clear the log file
+		BufferedWriter out = null;
+		try {
+			// The true at the end is so that we just add to the end of the log
+			out = new BufferedWriter(new FileWriter(log));
+			out.write("");
+			out.flush();
+			out.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+		// Redo the list of commands
+		int size = commands.size();
+		for(int i=0; i<size; i++)
+		{
+			// Split the command by "::"
+			String[] result = commands.get(i).split("::");
+			String cmd = result[0];
+			
+			if(cmd.equals("CreateDir")) {
+				CreateDir(result[1],result[2]);
+			} 
+			else if (cmd.equals("DeleteDir")) {
+				DeleteDir(result[1], result[2]);
+			} 
+			else if (cmd.equals("RenameDir")){
+				RenameDir(result[1], result[2]);
+			} 
+			else if (cmd.equals("CreateFile")) {
+				CreateFile(result[1], result[2]);
+			} 
+			else if (cmd.equals("DeleteFile")) {
+				DeleteFile(result[1], result[2]);
+			} 
+			else if (cmd.equals("chToCS")) {
+				String ip = result[1];
+				
+				// Add the chunk to the corresponding ChunkServer IP
+				if(chunkIPToChunks.containsKey(ip))
+				{
+					chunkIPToChunks.get(ip).add(result[2]);
+				}
+				else 
+				{
+					// Add the ChunkServer IP and the new vector with this chunk
+					Vector<String> chunks = new Vector<String>();
+					chunks.add(result[2]);
+					
+					chunkIPToChunks.put(ip, chunks);
+				}
+			} else if (cmd.equals("ChunkToFilespace")) {
+				AddChunkToFilesSpace(result[1], result[2]);
+			}
+			else {
+				// Do nothing
+			}
+		}
+		
+	}
+	
+	/** End of Logging Code **/
+	
 	public void AddChunkToFilesSpace(String filePath, String ChunkHandle) {
 		FileHandle fh = OpenFile(filePath);
 		fh.appendChunk(ChunkHandle);
+		
+		// TODO: Write to log
+		BufferedWriter out = null;
+		try {
+			// The true at the end is so that we just add to the end of the log
+			out = new BufferedWriter(new FileWriter(log,true));
+			out.write("ChunkToFilespace::"+filePath+"::"+ChunkHandle);
+			out.newLine();
+			out.flush();
+			out.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+		Tick();
+	}
+
+	public int AddChunkServer(Location location) {
+		chunkServerLocations.put(numChunkServers, location);
+		
+		// Check if the location already exists in chunkIPTOChunks
+		Vector<String> chunkHandles = chunkIPToChunks.get(location.getIp().toString());
+		if(chunkHandles == null)
+		{
+			chunkHandles = new Vector<String>();
+		}
+
+		chunkServerChunks.put(numChunkServers, chunkHandles);
+		System.out.println("Chunk Server " + numChunkServers + " at location " + location);
+		
+		numChunkServers++;
+		
+		return numChunkServers - 1;
+	}
+	
+	public void AddChunkHandleToChunkServer(int chunkServer, String ChunkHandle) {
+		chunkServerChunks.get(chunkServer).add(ChunkHandle);
+		
+		// TODO: Write to log
+		BufferedWriter out = null;
+		try {
+			// The true at the end is so that we just add to the end of the log
+			out = new BufferedWriter(new FileWriter(log,true));
+			out.write("chToCS::"+chunkServerLocations.get(chunkServer).getIp().toString()+"::"+ChunkHandle);
+			out.newLine();
+			out.flush();
+			out.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+		Tick();
+	}
+	
+	public Vector<Location> GetChunkServerLocations() {
+		Vector<Location> locations = new Vector<Location>();
+		
+		for (int i=0; i< numChunkServers; i++) {
+			locations.add(chunkServerLocations.get(i));
+		}
+		
+		return locations;
 	}
 	
 	/** Main function **/
 	public static void main(String [] args) {
-		// Put new ServerSocket() in a while loop incrementing by 1 in catch until 
-		// it binds. Write the port number into a file that client can read from
 		ServerSocket ss; 
 		boolean havePort = false;
 		int port = 5858;
@@ -514,13 +827,15 @@ public class Master {
 			{
 				ss = new ServerSocket(port);
 				System.out.println("Master's IP address is " + ss.getInetAddress().getLocalHost() + " and port is " + ss.getLocalPort()); 
-				// TODO: Write IP address out to file
-				// Write port number out to file
+				
+				// Write IP and port out to file
 				BufferedWriter writer;
 				try {
 					writer = new BufferedWriter(new FileWriter("MasterPort.txt"));
 					String ip = ss.getInetAddress().getLocalHost().toString();
 					writer.write("" + ip.substring(9)+ "\n");
+					// TODO: Change this back
+//					writer.write("" + ip.substring(30)+ "\n");
 					writer.write(""+port);
 				    writer.close();
 				} catch (IOException e1) {
@@ -539,32 +854,5 @@ public class Master {
 				port++;
 			}
 		}
-	}
-
-	public int AddChunkServer(Location location) {
-		
-		chunkServerLocations.put(numChunkServers, location);
-		
-		Vector<String> chunkHandles = new Vector<String>();
-		chunkServerChunks.put(numChunkServers, chunkHandles);
-		System.out.println("Chunk Server " + numChunkServers + " at location " + location);
-		
-		numChunkServers++;
-		
-		return numChunkServers - 1;
-	}
-	
-	public void AddChunkHandleToChunkServer(int chunkServer, String ChunkHandle) {
-		chunkServerChunks.get(chunkServer).add(ChunkHandle);
-	}
-	
-	public Vector<Location> GetChunkServerLocations() {
-		Vector<Location> locations = new Vector<Location>();
-		
-		for (int i=0; i< numChunkServers; i++) {
-			locations.add(chunkServerLocations.get(i));
-		}
-		
-		return locations;
 	}
 }
