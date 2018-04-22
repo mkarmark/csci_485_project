@@ -20,6 +20,7 @@ import com.message.CreateDirMessage;
 import com.message.DeleteRecordMessage;
 import com.message.GetChunkMessage;
 import com.message.InformAppendRecordMessage;
+import com.message.InformInitializeChunkMessage;
 import com.message.InitializeChunkMessage;
 import com.message.ReadFirstRecordMessage;
 import com.message.ReadLastRecordMessage;
@@ -141,25 +142,26 @@ public class ClientRec {
 		if(ofh.getChunks().isEmpty())
 		{
 //			String ch = cs.initializeChunk();
-			InitializeChunkMessage icm = new InitializeChunkMessage(); 
-			try {
-				// Send the message
-				csOos.writeObject(icm);
-				csOos.flush();
-				
-				// Receive the response and cast
-				Object o = null;
-				o = csOis.readObject();
-				icm = (InitializeChunkMessage)o;
-				
-				// Reset both streams
-				csOos.reset();
-			} catch (IOException ioe) {
-				System.out.println("ioe in clientFS: "+ioe.getMessage());
-			} catch (ClassNotFoundException cnfe) {
-				System.out.println("In ClientFS createDir " + cnfe.getMessage());
-			}
-			String ch = icm.getChunkHandle(); 
+//			InitializeChunkMessage icm = new InitializeChunkMessage(); 
+//			try {
+//				// Send the message
+//				csOos.writeObject(icm);
+//				csOos.flush();
+//				
+//				// Receive the response and cast
+//				Object o = null;
+//				o = csOis.readObject();
+//				icm = (InitializeChunkMessage)o;
+//				
+//				// Reset both streams
+//				csOos.reset();
+//			} catch (IOException ioe) {
+//				System.out.println("ioe in clientFS: "+ioe.getMessage());
+//			} catch (ClassNotFoundException cnfe) {
+//				System.out.println("In ClientFS createDir " + cnfe.getMessage());
+//			}
+//			String ch = icm.getChunkHandle();
+			String ch = CommunicateInitializationToCS(); 
 			
 			ofh.appendChunk(ch);
 			AppendChunkToFileSpaceMessage actfsm = new AppendChunkToFileSpaceMessage(ofh.getFilepath(), ch);
@@ -426,6 +428,57 @@ public class ClientRec {
 		
 		return null;
 	}
+	
+	private String CommunicateInitializationToCS() {
+		InitializeChunkMessage icm = new InitializeChunkMessage(); 
+		try {
+			// Send the message
+			csOos.writeObject(icm);
+			csOos.flush();
+			
+			// Receive the response and cast
+			Object o = null;
+			o = csOis.readObject();
+			icm = (InitializeChunkMessage)o;
+			
+			// Reset both streams
+			csOos.reset();
+		} catch (IOException ioe) {
+			System.out.println("ioe in clientFS: "+ioe.getMessage());
+		} catch (ClassNotFoundException cnfe) {
+			System.out.println("In ClientFS createDir " + cnfe.getMessage());
+		}
+		
+		
+		InformInitializeChunkMessage iicm = new InformInitializeChunkMessage(icm.getChunkHandle());
+		for (int i=1; i<locations.size(); i++) {
+			ObjectInputStream ois = null;
+			ObjectOutputStream oos = null;
+			try {
+				System.out.println("Trying to connect to ChunkServer");
+				// TODO: Get IP address of master from file
+				Socket s = new Socket(locations.get(i).getIp(), locations.get(i).getSocket());
+				
+				ois = new ObjectInputStream(s.getInputStream());
+				oos = new ObjectOutputStream(s.getOutputStream());
+			} catch (IOException ioe) {
+				System.out.println("ioe in clientFS constructor: " + ioe.getMessage());
+			}
+			try {
+				// Send the message
+				oos.writeObject(iicm);
+				oos.flush();
+				
+				// Reset both streams
+				oos.reset();
+			} catch (IOException ioe) {
+				System.out.println("ioe in clientRec: "+ioe.getMessage());
+			} 
+		}
+		
+		return icm.getChunkHandle(); 
+
+	}
 
 	private Vector<RID> CommunicateAppendToCS(String chunkHandle, byte[] payload, String previousChunkHandle) {
 		AppendRecordMessage arm = new AppendRecordMessage(chunkHandle, payload, previousChunkHandle);
@@ -463,7 +516,7 @@ public class ClientRec {
 			InformAppendRecordMessage iarm = new InformAppendRecordMessage(chunkHandle, payload, previousChunkHandle);
 			try {
 				// Send the message
-				oos.writeObject(arm);
+				oos.writeObject(iarm);
 				oos.flush();
 				
 				// Reset both streams
