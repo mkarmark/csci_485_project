@@ -11,6 +11,7 @@ import com.message.AppendChunkToFileSpaceMessage;
 import com.message.AppendRecordMessage;
 import com.message.DeleteRecordMessage;
 import com.message.GetChunkMessage;
+import com.message.InformAppendRecordMessage;
 import com.message.InitializeChunkMessage;
 import com.message.ReadFirstRecordMessage;
 import com.message.ReadLastRecordMessage;
@@ -176,6 +177,18 @@ public class ChunkServerThread extends Thread{
 					
 					// Write and flush
 					oos.writeObject(outRPRM);
+				} else if (o instanceof InformAppendRecordMessage) {
+					// Cast incoming message
+					InformAppendRecordMessage iarm = (InformAppendRecordMessage)o;
+					
+					// Get parameters
+					String ChunkHandle = iarm.getChunkHandle();
+					byte[] payload = iarm.getPayload(); 
+					String previousChunkHandle = iarm.getPreviousChunkHandle();
+					
+					// Get result from Master
+					cs.appendRecord(ChunkHandle, payload, previousChunkHandle);
+									
 				} 
 			}
 		} catch (IOException ioe) {

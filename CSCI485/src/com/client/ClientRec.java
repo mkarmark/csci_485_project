@@ -19,6 +19,7 @@ import com.message.AppendRecordMessage;
 import com.message.CreateDirMessage;
 import com.message.DeleteRecordMessage;
 import com.message.GetChunkMessage;
+import com.message.InformAppendRecordMessage;
 import com.message.InitializeChunkMessage;
 import com.message.ReadFirstRecordMessage;
 import com.message.ReadLastRecordMessage;
@@ -444,6 +445,32 @@ public class ClientRec {
 			System.out.println("ioe in clientRec: "+ioe.getMessage());
 		} catch (ClassNotFoundException cnfe) {
 			System.out.println("In ClientRec CommunicateAppendToCS " + cnfe.getMessage());
+		}
+		
+		for (int i=1; i<locations.size(); i++) {
+			ObjectInputStream ois = null;
+			ObjectOutputStream oos = null;
+			try {
+				System.out.println("Trying to connect to ChunkServer");
+				// TODO: Get IP address of master from file
+				Socket s = new Socket(locations.get(i).getIp(), locations.get(i).getSocket());
+				
+				ois = new ObjectInputStream(s.getInputStream());
+				oos = new ObjectOutputStream(s.getOutputStream());
+			} catch (IOException ioe) {
+				System.out.println("ioe in clientFS constructor: " + ioe.getMessage());
+			}
+			InformAppendRecordMessage iarm = new InformAppendRecordMessage(chunkHandle, payload, previousChunkHandle);
+			try {
+				// Send the message
+				oos.writeObject(arm);
+				oos.flush();
+				
+				// Reset both streams
+				oos.reset();
+			} catch (IOException ioe) {
+				System.out.println("ioe in clientRec: "+ioe.getMessage());
+			} 
 		}
 		return arm.getRids(); 
 	}
