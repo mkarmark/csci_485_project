@@ -12,6 +12,7 @@ import com.message.AppendRecordMessage;
 import com.message.DeleteRecordMessage;
 import com.message.GetChunkMessage;
 import com.message.InformAppendRecordMessage;
+import com.message.InformInitializeChunkMessage;
 import com.message.InitializeChunkMessage;
 import com.message.ReadFirstRecordMessage;
 import com.message.ReadLastRecordMessage;
@@ -40,11 +41,15 @@ public class ChunkServerThread extends Thread{
 				Object o = ois.readObject();
 				
 				if (o instanceof InitializeChunkMessage) {
+					
+					
 					// Cast incoming message
 					InitializeChunkMessage icm = (InitializeChunkMessage)o;
 					
 					// Get result from Master
 					String ChunkHandle = cs.initializeChunk();
+					
+					System.out.println("Initializing Chunk!!! The name is " + ChunkHandle);
 										
 					// Create outgoing message
 					InitializeChunkMessage outICM = new InitializeChunkMessage(ChunkHandle);
@@ -186,9 +191,37 @@ public class ChunkServerThread extends Thread{
 					byte[] payload = iarm.getPayload(); 
 					String previousChunkHandle = iarm.getPreviousChunkHandle();
 					
+//					System.out.println("///");
+//					System.out.println(cs);
+//					System.out.println(payload);
+//					System.out.println(ChunkHandle);
+//					System.out.println(previousChunkHandle);
+//					System.out.println("\\ \\ \n");
+					
 					// Get result from Master
 					cs.appendRecord(ChunkHandle, payload, previousChunkHandle);
+					
+					oos.writeObject("dummy"); 
 									
+				} else if (o instanceof InformInitializeChunkMessage) {
+					
+					
+					// Cast incoming message
+					InformInitializeChunkMessage iicm = (InformInitializeChunkMessage)o;
+					
+					// Get parameters
+					String ChunkHandle = iicm.getChunkHandle();
+					
+					// Get result from Master
+					cs.initializeChunk(ChunkHandle);
+					
+//					System.out.println("Initializing Chunk!!! The name is " + ChunkHandle);
+										
+					// Create outgoing message
+					InitializeChunkMessage outICM = new InitializeChunkMessage(ChunkHandle);
+					
+					// Write and flush
+					oos.writeObject(outICM);
 				} 
 			}
 		} catch (IOException ioe) {

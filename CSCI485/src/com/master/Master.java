@@ -519,6 +519,8 @@ public class Master {
 				BufferedWriter writer;
 				try {
 					writer = new BufferedWriter(new FileWriter("MasterPort.txt"));
+					String ip = ss.getInetAddress().getLocalHost().toString();
+					writer.write("" + ip.substring(9)+ "\n");
 					writer.write(""+port);
 				    writer.close();
 				} catch (IOException e1) {

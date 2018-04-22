@@ -191,6 +191,49 @@ public class ChunkServer implements ChunkServerInterface {
 		
 //		ms.AddChunkToFilesSpace(chunkHandle, ChunkHandle);
 		return String.valueOf(counter);
+	} 
+	/**
+	 * Each chunk is corresponding to a file.
+	 * Return the chunk handle of the last chunk in the file.
+	 */
+	public void initializeChunk(String chunkHandle) {
+		int counter = Integer.parseInt(chunkHandle); 
+		
+		// Write to metadata file
+		BufferedWriter out = null;
+		try {
+			out = new BufferedWriter(new FileWriter(filePath+"metadata.txt"));
+			out.write(""+counter);
+			out.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+		System.out.println("NEW FILE TO BE CREATED " + chunkHandle);
+		
+		// Create the file
+		try {
+			RandomAccessFile raf = new RandomAccessFile(filePath + chunkHandle, "rw"); 
+			ByteBuffer numSlots = ByteBuffer.allocate(4); 
+			ByteBuffer nextFreeOffset = ByteBuffer.allocate(4); 
+			numSlots.putInt(0);
+			nextFreeOffset.putInt(8); 
+			byte[] numSlotsArray = numSlots.array();
+			byte[] nextFreeOffsetArray = nextFreeOffset.array(); 
+			byte[] indexedHeap = new byte[ChunkServer.ChunkSize];
+			int offset = 0;
+			for (int i=0; i<numSlotsArray.length; i++) {
+				indexedHeap[i] = numSlotsArray[i];
+				offset++;
+			}
+			for (int i=0; i<nextFreeOffsetArray.length; i++) {
+				indexedHeap[offset+i] = nextFreeOffsetArray[i];
+			}
+			raf.seek(0);
+			raf.write(indexedHeap, 0, ChunkServer.ChunkSize);
+		} catch (IOException ex) {
+			System.out.println("ex: " + ex.getMessage());
+		}	
 	}
 
 	/**
@@ -218,6 +261,7 @@ public class ChunkServer implements ChunkServerInterface {
 		try {
 			//If the file for the chunk does not exist the return null
 			boolean exists = (new File(filePath + ChunkHandle)).exists();
+//			System.out.println("exists = " + exists);
 			if (exists == false) return null;
 			
 			//File for the chunk exists then go ahead and read it
@@ -244,16 +288,22 @@ public class ChunkServer implements ChunkServerInterface {
 		Vector<String> handles = new Vector<String>(); 
 		handles.add(ChunkHandle); 
 		boolean isChunkEnough = false;
+		
 		byte[] numSlots = getChunk(ChunkHandle, 0, 4);
+		System.out.println("ChunkHandle is " + ChunkHandle);
+		System.out.println("numSlots " + numSlots); 
 		int intNumSlots = ByteBuffer.wrap(numSlots).getInt(); 
 		byte[] nextFreeOffset = getChunk(ChunkHandle, 4, 4); 
 		int intNextFreeOffset = ByteBuffer.wrap(nextFreeOffset).getInt(); 
 		int numBytesInPayload = payload.length; 
+		System.out.println("payload = " + numBytesInPayload);
 		int numBytesFreeSpace = ChunkServer.ChunkSize - intNextFreeOffset - 4*(intNumSlots+1);
 		Vector<RID> rids = new Vector<RID>(); 
+		System.out.println("numBytesFreeSpace = " + numBytesFreeSpace);
 		//entire append can take place in last chunk 
 		if (numBytesFreeSpace >= numBytesInPayload + 12)
 		{
+			System.out.println("IF");
 			//a new set of 4 bytes that indicate the number of slots
 			intNumSlots++;
 			ByteBuffer bNumSlots = ByteBuffer.allocate(4);
@@ -299,6 +349,7 @@ public class ChunkServer implements ChunkServerInterface {
 			RID rid = new RID(ChunkHandle, intNumSlots);
 			rids.add(rid); 
 		} else if(numBytesFreeSpace > 12){
+			System.out.println("ELSE IF");
 			int availableBytes = numBytesFreeSpace - 12;
 			byte[] firstSection = new byte[availableBytes];
 			byte[] secondSection = new byte[numBytesInPayload - availableBytes];
@@ -331,7 +382,16 @@ public class ChunkServer implements ChunkServerInterface {
 			byte[] bytePayloadSize = bPayloadSize.array(); 
 			
 			//pointer to next chunk, otherwise it's going to be -1
-			String handle = initializeChunk();
+			String handle =  "";
+			if (id == 0) {
+				System.out.println("plain jane");
+				handle = initializeChunk();
+			} else {
+				System.out.println("new type");
+				handle = "" + (Integer.parseInt(ChunkHandle)+1);
+				initializeChunk(handle);
+			}
+			System.out.println("Handle = " + handle);
 			
 			int handleInt = Integer.parseInt(handle);
 			ByteBuffer bNextChunk = ByteBuffer.allocate(4);
@@ -363,8 +423,17 @@ public class ChunkServer implements ChunkServerInterface {
 				rids.add(extraRids.get(i)); 
 			}
 		}else {
+			System.out.println("ELSE");
 			//create a new chunk handle
-			String newChunkHandle = initializeChunk();
+			//String newChunkHandle = initializeChunk();
+			//System.out.println("Handle2 = " + newChunkHandle);
+			String newChunkHandle =  "";
+			if (id == 0) {
+				newChunkHandle = initializeChunk();
+			} else {
+				newChunkHandle = "" + (Integer.parseInt(ChunkHandle)+1);
+				initializeChunk(newChunkHandle); 
+			}
 			//call appendRecord on that chunkhandle:
 			rids = appendRecord(newChunkHandle, payload, "-1");
 		}
