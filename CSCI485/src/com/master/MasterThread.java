@@ -20,6 +20,7 @@ import com.message.InformMasterOfChunkMessage;
 import com.message.ListDirMessage;
 import com.message.OpenFileMessage;
 import com.message.RenameDirMessage;
+import com.message.RequestChunkServerLocationsMessage;
 
 public class MasterThread extends Thread{
 	private ObjectOutputStream oos;
@@ -209,6 +210,16 @@ public class MasterThread extends Thread{
 					
 					// Get result from Master
 					ms.AddChunkHandleToChunkServer(id, chunkHandle);
+									
+				} else if (o instanceof RequestChunkServerLocationsMessage) {
+					// Get result from Master
+					Vector<Location> locations = ms.GetChunkServerLocations();
+					
+					// Create outgoing message
+					RequestChunkServerLocationsMessage outRCSLM = new RequestChunkServerLocationsMessage(locations);
+					
+					// Write and flush
+					oos.writeObject(outRCSLM);
 									
 				}
 				oos.flush();

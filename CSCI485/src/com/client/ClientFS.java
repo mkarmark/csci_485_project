@@ -5,6 +5,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.net.InetAddress;
 import java.net.Socket;
 import java.util.Scanner;
 import java.util.Vector;
@@ -42,28 +43,29 @@ public class ClientFS {
 	
 	// Constructor
 	public ClientFS(){
-		int port = 5858;
-		
-		// Get the port number
+		int port = 5858; 
+		String ipAddress = "";
+		Scanner scanner = new Scanner(System.in);
 		File portFile = new File("MasterPort.txt");
-		Scanner scanner;
 		try {
 			scanner = new Scanner(portFile);
-			while(scanner.hasNext())
-			{
-				port = scanner.nextInt();
-			}
+			
+			ipAddress = scanner.nextLine();
+			port = scanner.nextInt();
+			System.out.println("ipAddress: " + ipAddress + "  port: " + port);
+			
 			scanner.close();
 		} catch (FileNotFoundException e) {
 			System.out.println("port file not found");
 		}
 		
 		// Connect to the port
+		InetAddress sIP = null;
+				
 		try {
 			System.out.println("Trying to connect to Master");
-			// TODO: Get IP address of master from file
-			Socket s = new Socket("localhost", port);
-			
+			Socket s = new Socket(ipAddress, port);
+
 			ois = new ObjectInputStream(s.getInputStream());
 			oos = new ObjectOutputStream(s.getOutputStream());
 		} catch (IOException ioe) {

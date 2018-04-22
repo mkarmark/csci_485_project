@@ -5,12 +5,14 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.net.InetAddress;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.util.Scanner;
 import java.util.Vector;
 
 import com.chunkserver.ChunkServer;
+import com.chunkserver.Location;
 import com.client.ClientFS.FSReturnVals;
 import com.message.AppendChunkToFileSpaceMessage;
 import com.message.AppendRecordMessage;
@@ -22,6 +24,7 @@ import com.message.ReadFirstRecordMessage;
 import com.message.ReadLastRecordMessage;
 import com.message.ReadNextRecordMessage;
 import com.message.ReadPrevRecordMessage;
+import com.message.RequestChunkServerLocationsMessage;
 
 public class ClientRec {
 	private ObjectInputStream csOis;
@@ -31,61 +34,88 @@ public class ClientRec {
 	
 	public static ChunkServer cs = new ChunkServer();
 	
+	private Vector<Location> locations; 
+	
 	public ClientRec() {
-		int port = 5959;
-		
-		// Get the port number
-		File portFile = new File("ChunkServerPort.txt");
-		Scanner scanner;
+		int port = 5858; 
+		String ipAddress = "";
+		Scanner scanner = new Scanner(System.in);
+		File portFile = new File("MasterPort.txt");
 		try {
 			scanner = new Scanner(portFile);
-			while(scanner.hasNext())
-			{
-				port = scanner.nextInt();
-			}
+			
+			ipAddress = scanner.nextLine();
+			port = scanner.nextInt();
+			System.out.println("ipAddress: " + ipAddress + "  port: " + port);
+			
 			scanner.close();
 		} catch (FileNotFoundException e) {
 			System.out.println("port file not found");
 		}
+		
+		// Connect to the port
+		InetAddress sIP = null;
+				
+		try {
+			System.out.println("Trying to connect to Master");
+			Socket s = new Socket(ipAddress, port);
+
+			msOis = new ObjectInputStream(s.getInputStream());
+			msOos = new ObjectOutputStream(s.getOutputStream());
+		} catch (IOException ioe) {
+			System.out.println("ioe in clientFS constructor: " + ioe.getMessage());
+		}
+		
+		RequestChunkServerLocationsMessage rcslm = new RequestChunkServerLocationsMessage();
+		
+		try{
+			// Send the message
+			msOos.writeObject(rcslm);
+			msOos.flush();
+			
+			// Receive the response and cast
+			Object o = null;
+			o = msOis.readObject();
+			rcslm = (RequestChunkServerLocationsMessage)o;
+			
+			// Reset both streams
+			msOos.reset();
+		} catch (IOException ioe) {
+			System.out.println("ioe in clientFS: "+ioe.getMessage());
+		} catch (ClassNotFoundException cnfe) {
+			System.out.println("In ClientFS createDir " + cnfe.getMessage());
+		}
+		
+		// Get error from message
+		locations = rcslm.getLocations();  
+		
+//		port = 5959;
+//		
+//		// Get the port number
+//		File portFile = new File("ChunkServerPort.txt");
+//		
+//		try {
+//			scanner = new Scanner(portFile);
+//			while(scanner.hasNext())
+//			{
+//				port = scanner.nextInt();
+//			}
+//			scanner.close();
+//		} catch (FileNotFoundException e) {
+//			System.out.println("port file not found");
+//		}
 		
 		// Connect to the port
 		try {
 			System.out.println("Trying to connect to ChunkServer");
 			// TODO: Get IP address of master from file
-			Socket s = new Socket("localhost", port);
+			Socket s = new Socket(locations.get(0).getIp(), locations.get(0).getSocket());
 			
 			csOis = new ObjectInputStream(s.getInputStream());
 			csOos = new ObjectOutputStream(s.getOutputStream());
 		} catch (IOException ioe) {
 			System.out.println("ioe in clientFS constructor: " + ioe.getMessage());
-		}
-		
-		port = 5858;
-		
-		// Get the port number
-		portFile = new File("MasterPort.txt");
-		try {
-			scanner = new Scanner(portFile);
-			while(scanner.hasNext())
-			{
-				port = scanner.nextInt();
-			}
-			scanner.close();
-		} catch (FileNotFoundException e) {
-			System.out.println("port file not found");
-		}
-		
-		// Connect to the port
-		try {
-			System.out.println("Trying to connect to Master");
-			// TODO: Get IP address of master from file
-			Socket s = new Socket("localhost", port);
-			
-			msOis = new ObjectInputStream(s.getInputStream());
-			msOos = new ObjectOutputStream(s.getOutputStream());
-		} catch (IOException ioe) {
-			System.out.println("ioe in clientFS constructor: " + ioe.getMessage());
-		}		
+		}	
 		
 	}
 

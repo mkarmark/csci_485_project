@@ -540,15 +540,29 @@ public class Master {
 	}
 
 	public int AddChunkServer(Location location) {
-		numChunkServers++;
+		
 		chunkServerLocations.put(numChunkServers, location);
+		
 		Vector<String> chunkHandles = new Vector<String>();
 		chunkServerChunks.put(numChunkServers, chunkHandles);
 		System.out.println("Chunk Server " + numChunkServers + " at location " + location);
-		return numChunkServers;
+		
+		numChunkServers++;
+		
+		return numChunkServers - 1;
 	}
 	
 	public void AddChunkHandleToChunkServer(int chunkServer, String ChunkHandle) {
 		chunkServerChunks.get(chunkServer).add(ChunkHandle);
+	}
+	
+	public Vector<Location> GetChunkServerLocations() {
+		Vector<Location> locations = new Vector<Location>();
+		
+		for (int i=0; i< numChunkServers; i++) {
+			locations.add(chunkServerLocations.get(i));
+		}
+		
+		return locations;
 	}
 }
