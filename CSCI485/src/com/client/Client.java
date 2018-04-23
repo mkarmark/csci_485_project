@@ -9,10 +9,17 @@ import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.PrintWriter;
+import java.net.InetAddress;
 import java.net.Socket;
 import java.util.Scanner;
+import java.util.Vector;
 
+import com.chunkserver.Location;
 import com.interfaces.ClientInterface;
+import com.message.GetChunkMessage;
+import com.message.InitializeChunkMessage;
+import com.message.PutChunkMessage;
+import com.message.RequestChunkServerLocationsMessage;
 
 /**
  * implementation of interfaces at the client side
@@ -20,95 +27,140 @@ import com.interfaces.ClientInterface;
  *
  */
 public class Client implements ClientInterface {
-	final static String filePath = "/Users/Nandhini/Documents/CSCI485/NewFiles/";
-	private ObjectInputStream ois;
-	private ObjectOutputStream oos;
+//	final static String filePath = "";
+	private ObjectInputStream csOis;
+	private ObjectOutputStream csOos;
+	private ObjectInputStream msOis;
+	private ObjectOutputStream msOos; 
 	
 	/**
 	 * Initialize the client
 	 */
 	public Client(){
-		int port = 5858;
-		
-		// Get the port number
-		File portFile = new File(filePath+"port.txt");
-		Scanner scanner;
+		int port = 5858; 
+		String ipAddress = "";
+		Scanner scanner = new Scanner(System.in);
+		File portFile = new File("MasterPort.txt");
 		try {
 			scanner = new Scanner(portFile);
-			while(scanner.hasNext())
-			{
-				port = scanner.nextInt();
-			}
+			
+			ipAddress = scanner.nextLine();
+			port = scanner.nextInt();
+			System.out.println("ipAddress: " + ipAddress + "  port: " + port);
+			
 			scanner.close();
 		} catch (FileNotFoundException e) {
 			System.out.println("port file not found");
 		}
 		
 		// Connect to the port
+		InetAddress sIP = null;
+				
 		try {
-			Socket s = new Socket("localhost", port);
-			
-			ois = new ObjectInputStream(s.getInputStream());
-			oos = new ObjectOutputStream(s.getOutputStream());
+			System.out.println("Trying to connect to Master");
+			Socket s = new Socket(ipAddress, port);
+
+			msOis = new ObjectInputStream(s.getInputStream());
+			msOos = new ObjectOutputStream(s.getOutputStream());
 		} catch (IOException ioe) {
-			System.out.println("ioe in client constructor: " + ioe.getMessage());
+			System.out.println("ioe in clientFS constructor: " + ioe.getMessage());
 		}
+		
+		RequestChunkServerLocationsMessage rcslm = new RequestChunkServerLocationsMessage();
+		
+		try{
+			// Send the message
+			msOos.writeObject(rcslm);
+			msOos.flush();
+			
+			// Receive the response and cast
+			Object o = null;
+			o = msOis.readObject();
+			rcslm = (RequestChunkServerLocationsMessage)o;
+			
+			// Reset both streams
+			msOos.reset();
+		} catch (IOException ioe) {
+			System.out.println("ioe in clientFS: "+ioe.getMessage());
+		} catch (ClassNotFoundException cnfe) {
+			System.out.println("In ClientFS createDir " + cnfe.getMessage());
+		}
+		
+		// Get error from message
+		Vector<Location> locations = rcslm.getLocations();  
+		
+//		port = 5959;
+//		
+//		// Get the port number
+//		File portFile = new File("ChunkServerPort.txt");
+//		
+//		try {
+//			scanner = new Scanner(portFile);
+//			while(scanner.hasNext())
+//			{
+//				port = scanner.nextInt();
+//			}
+//			scanner.close();
+//		} catch (FileNotFoundException e) {
+//			System.out.println("port file not found");
+//		}
+		
+		// Connect to the port
+		try {
+			System.out.println("Trying to connect to ChunkServer");
+			// TODO: Get IP address of master from file
+			Socket s = new Socket(locations.get(0).getIp(), locations.get(0).getSocket());
+			
+			csOis = new ObjectInputStream(s.getInputStream());
+			csOos = new ObjectOutputStream(s.getOutputStream());
+		} catch (IOException ioe) {
+			System.out.println("ioe in clientFS constructor: " + ioe.getMessage());
+		}	
 	}
 	
 	/**
 	 * Create a chunk at the chunk server from the client side.
 	 */
 	public String initializeChunk() {
-		ChunkMessage cm = new ChunkMessage(0, 1);
-		String chunkHandle = "";
+		InitializeChunkMessage icm = new InitializeChunkMessage(); 
 		try{
-			oos.writeObject(cm);
-			oos.flush();
+			csOos.writeObject(icm);
+			csOos.flush();
 			
 			// Read in the chunk handle
-			chunkHandle = (String)ois.readObject();
+			icm = (InitializeChunkMessage)csOis.readObject();
 			
 			// Reset output stream
-			oos.reset();
+			csOos.reset();
 		} catch (IOException ioe) {
 			System.out.println("ioe in client: "+ioe.getMessage());
 		} catch (ClassNotFoundException cnfe) {
 			System.out.println("In Client initialize chunk " + cnfe.getMessage());
 		}
 		
-		return chunkHandle;
+		return icm.getChunkHandle();
 	}
 	
 	/**
 	 * Write a chunk at the chunk server from the client side.
 	 */
 	public boolean putChunk(String ChunkHandle, byte[] payload, int offset) {
-		if(offset + payload.length > Client.ChunkSize){
-			System.out.println("The chunk write should be within the range of the file, invalide chunk write!");
-			return false;
+		if (offset + payload.length > Client.ChunkSize) {
+			return false; 
 		}
 		
-		// Create the chunk message
-		ChunkMessage cm = new ChunkMessage(0,3);
-		cm.setOffset(offset);
-		cm.setChunk(payload);
-		cm.setHandle(ChunkHandle);
+		PutChunkMessage pcm = new PutChunkMessage(ChunkHandle, payload, offset);
 		
 		boolean success = false;
 		
 		try{
-			oos.writeObject(cm);
-			oos.flush();
+			csOos.writeObject(pcm);
+			csOos.flush();
 			
-			// Determine success from string to boolean
-			String result = (String)ois.readObject();
-			if(result.equals("True"))
-			{
-				success = true;
-			}
+			pcm = (PutChunkMessage)csOis.readObject();
 			
 			// Reset object output stream
-			oos.reset();
+			csOos.reset();
 			
 		} catch (IOException ioe) {
 			System.out.println("ioe in client: "+ioe.getMessage());
@@ -116,7 +168,7 @@ public class Client implements ClientInterface {
 			System.out.println("In Client initialize chunk " + cnfe.getMessage());
 		}
 		
-		return success;
+		return pcm.getStatus();
 	}
 	
 	/**
@@ -128,22 +180,19 @@ public class Client implements ClientInterface {
 			return null;
 		}
 		
-		// Create the chunk message
-		ChunkMessage cm = new ChunkMessage(NumberOfBytes,2);
-		cm.setOffset(offset);
-		cm.setHandle(ChunkHandle);
+		GetChunkMessage gcm = new GetChunkMessage(ChunkHandle, offset, NumberOfBytes); 
 		
 		byte[] result = null;
 		
 		try{
-			oos.writeObject(cm);
-			oos.flush();
+			csOos.writeObject(gcm);
+			csOos.flush();
 			
 			// Determine success from string to boolean
-			result = (byte[])ois.readObject();
+			gcm = (GetChunkMessage)csOis.readObject();
 			
 			// Reset Output Stream
-			oos.reset();
+			csOos.reset();
 			
 		} catch (IOException ioe) {
 			System.out.println("ioe in client: "+ioe.getMessage());
@@ -151,6 +200,6 @@ public class Client implements ClientInterface {
 			System.out.println("In Client initialize chunk " + cnfe.getMessage());
 		}
 		
-		return result;
+		return gcm.getPayload();
 	}
 }

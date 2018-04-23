@@ -11,9 +11,11 @@ import com.message.AppendChunkToFileSpaceMessage;
 import com.message.AppendRecordMessage;
 import com.message.DeleteRecordMessage;
 import com.message.GetChunkMessage;
+import com.message.HeartBeatMessage;
 import com.message.InformAppendRecordMessage;
 import com.message.InformInitializeChunkMessage;
 import com.message.InitializeChunkMessage;
+import com.message.PutChunkMessage;
 import com.message.ReadFirstRecordMessage;
 import com.message.ReadLastRecordMessage;
 import com.message.ReadNextRecordMessage;
@@ -201,7 +203,7 @@ public class ChunkServerThread extends Thread{
 					// Get result from Master
 					cs.appendRecord(ChunkHandle, payload, previousChunkHandle);
 					
-					oos.writeObject("dummy"); 
+					oos.writeObject(new HeartBeatMessage()); 
 									
 				} else if (o instanceof InformInitializeChunkMessage) {
 					
@@ -222,7 +224,24 @@ public class ChunkServerThread extends Thread{
 					
 					// Write and flush
 					oos.writeObject(outICM);
-				} 
+				} else if (o instanceof PutChunkMessage) {
+					// Cast incoming message
+					PutChunkMessage pcm = (PutChunkMessage)o;
+					
+					// Get parameters
+					String ChunkHandle = pcm.getChunkHandle();
+					byte[] payload = pcm.getPayload(); 
+					int offset = pcm.getOffset();
+					
+					// Get result from Master
+					boolean status = cs.putChunk(ChunkHandle, payload, offset);
+										
+					// Create outgoing message
+					PutChunkMessage outPCM = new PutChunkMessage(status);
+					
+					// Write and flush
+					oos.writeObject(outPCM);
+				}
 			}
 		} catch (IOException ioe) {
 			System.out.println("mtRun ioe:"+ioe.getMessage());

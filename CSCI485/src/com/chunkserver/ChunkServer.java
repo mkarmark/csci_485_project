@@ -44,6 +44,8 @@ public class ChunkServer implements ChunkServerInterface {
 	private int id;
 	
 	public Master ms; 
+	
+	private boolean hasLease = true;
 
 	/**
 	 * Initialize the chunk server
@@ -102,6 +104,7 @@ public class ChunkServer implements ChunkServerInterface {
 			System.out.println("ioe in ChunkServer constructor: " + ioe.getMessage());
 		}
 		 
+		
 	}
 	
 	public void SendLocationToMaster(Location l)
@@ -127,6 +130,10 @@ public class ChunkServer implements ChunkServerInterface {
 		}
 		
 		id = csim.getChunkServerID();
+		
+		if (id != 0) {
+			hasLease = false;
+		}
 		
 	}
 
@@ -211,6 +218,9 @@ public class ChunkServer implements ChunkServerInterface {
 		
 		// Create the file
 		try {
+			if (hasLease) {
+				System.out.println("I have a lease");
+			}
 			RandomAccessFile raf = new RandomAccessFile(filePath + chunkHandle, "rw"); 
 			ByteBuffer numSlots = ByteBuffer.allocate(4); 
 			ByteBuffer nextFreeOffset = ByteBuffer.allocate(4); 
