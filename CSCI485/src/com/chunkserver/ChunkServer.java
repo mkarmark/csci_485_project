@@ -207,7 +207,7 @@ public class ChunkServer implements ChunkServerInterface {
 			e.printStackTrace();
 		}
 		
-		System.out.println("NEW FILE TO BE CREATED " + chunkHandle);
+//		System.out.println("NEW FILE TO BE CREATED " + chunkHandle);
 		
 		// Create the file
 		try {
@@ -288,6 +288,9 @@ public class ChunkServer implements ChunkServerInterface {
 		boolean isChunkEnough = false;
 		
 		byte[] numSlots = getChunk(ChunkHandle, 0, 4);
+		if (numSlots == null && id != 0) {
+			return null; 
+		}
 		System.out.println("ChunkHandle is " + ChunkHandle);
 		System.out.println("numSlots " + numSlots); 
 		int intNumSlots = ByteBuffer.wrap(numSlots).getInt(); 
@@ -382,14 +385,14 @@ public class ChunkServer implements ChunkServerInterface {
 			//pointer to next chunk, otherwise it's going to be -1
 			String handle =  "";
 			if (id == 0) {
-				System.out.println("plain jane");
+//				System.out.println("plain jane");
 				handle = initializeChunk();
 			} else {
-				System.out.println("new type");
+//				System.out.println("new type");
 				handle = "" + (Integer.parseInt(ChunkHandle)+1);
 				initializeChunk(handle);
 			}
-			System.out.println("Handle = " + handle);
+//			System.out.println("Handle = " + handle);
 			
 			int handleInt = Integer.parseInt(handle);
 			ByteBuffer bNextChunk = ByteBuffer.allocate(4);
@@ -423,13 +426,14 @@ public class ChunkServer implements ChunkServerInterface {
 		}else {
 			System.out.println("ELSE");
 			//create a new chunk handle
-			//String newChunkHandle = initializeChunk();
-			//System.out.println("Handle2 = " + newChunkHandle);
+//			String newChunkHandle = initializeChunk();
+			System.out.println("Handle2 ");
 			String newChunkHandle =  "";
 			if (id == 0) {
 				newChunkHandle = initializeChunk();
-			} else {
+			} else { 				
 				newChunkHandle = "" + (Integer.parseInt(ChunkHandle)+1);
+				System.out.println("The new chunk handle is " + newChunkHandle);
 				initializeChunk(newChunkHandle); 
 			}
 			//call appendRecord on that chunkhandle:
