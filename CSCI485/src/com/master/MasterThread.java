@@ -231,6 +231,4 @@ public class MasterThread extends Thread{
 			System.out.println("mtRun cnfe:"+cnfe.getMessage());
 		}
 	}
-	
-	// TODO: Complete this
 }

@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Scanner;
 import java.util.Set;
 import java.util.Vector;
+import java.util.concurrent.locks.ReentrantLock;
 
 import com.chunkserver.ChunkServer;
 import com.chunkserver.Location;
@@ -34,11 +35,18 @@ public class Master {
 	
 	private int ticks = 0;
 	
+	private final ReentrantLock SLock;
+	private final ReentrantLock XLock;
+	
 	/**
 	 * Constructor
 	 */
 	public Master()
 	{
+		// Initialize locks
+		SLock = new ReentrantLock();
+		XLock = new ReentrantLock();
+		
 		// Create namespace
 		namespace = new HashSet<String>();
 		
@@ -61,16 +69,21 @@ public class Master {
 		// Update from Log
 		UpdateFromLog();
 	}
+
+/*** DIRECTORY CODE ***/
 	
 	/**Create directory
-	 * 
 	 * return: an int representing the error status (0=success; -1=srcDNE; -2=DestExists)
 	 */
 	public int CreateDir(String src, String dirname)
 	{
+		// Exclusive lock to create directories
+		XLock.lock();
+		
 		// Check if the source exists
 		if(!namespace.contains(src))
 		{
+			XLock.unlock();
 			// If not, return -1
 			return -1;
 		}
@@ -78,6 +91,7 @@ public class Master {
 		// Check if the specified directory already exists
 		if(namespace.contains(src+dirname+"/"))
 		{
+			XLock.unlock();
 			return -2;
 		}
 		
@@ -97,6 +111,9 @@ public class Master {
 			e.printStackTrace();
 		}
 		
+		// Unlock 
+		XLock.unlock();
+		
 		// Increment ticks 
 		Tick();
 		
@@ -108,9 +125,13 @@ public class Master {
 	 */
 	public int DeleteDir(String src, String dirname)
 	{
+		// Exclusive lock to delete directories
+		XLock.lock();
+		
 		// Check if the source exists
 		if(!namespace.contains(src))
 		{
+			XLock.unlock();
 			// If not, return -1
 			return -1;
 		}
@@ -118,6 +139,7 @@ public class Master {
 		// Check if the specified directory exists
 		if(!namespace.contains(src+dirname+"/"))
 		{
+			XLock.unlock();
 			return -2;
 		}
 		
@@ -134,13 +156,14 @@ public class Master {
 		// Count is 1 because of the directory itself so greater means subdirectories
 		if(countSub>1)
 		{
+			XLock.unlock();
 			return -3;
 		}
 		
 		// No errors = delete it
 		namespace.remove(src+dirname+"/");
 		
-		// TODO: Write to log
+		// Write to log
 		BufferedWriter out = null;
 		try {
 			// The true at the end is so that we just add to the end of the log
@@ -153,23 +176,29 @@ public class Master {
 			e.printStackTrace();
 		}
 		
+		// Unlock
+		XLock.unlock();
+		
 		// Increment ticks
 		Tick();
 		
 		return 0;
 	}
 	
-	/**
-	 * 
+	/**Rename Directory
 	 * @param src
 	 * @param NewName
 	 * @return int representing error code (0=success; -1=srcDNE; -2=NewNameExists) 
 	 */
 	public int RenameDir(String src, String NewName)
 	{
+		// Exclusive lock to delete directories
+		XLock.lock();
+				
 		// Check if the source exists
 		if(!namespace.contains(src+"/"))
 		{
+			XLock.unlock();
 			// If not, return -1
 			return -1;
 		}
@@ -177,6 +206,7 @@ public class Master {
 		// Check if the new name already exists
 		if(namespace.contains(NewName+"/"))
 		{
+			XLock.unlock();
 			return -2;
 		}
 		
@@ -212,6 +242,8 @@ public class Master {
 			e.printStackTrace();
 		}
 		
+		XLock.unlock();
+		
 		// Increment Ticks
 		Tick();
 		
@@ -225,6 +257,9 @@ public class Master {
 	 */
 	public Vector<String> ListDir(String tgt)
 	{
+		// Lock with a read lock
+		SLock.lock();
+		
 		Vector<String> results = new Vector<String>();
 		
 		// Check if the specified directory exists
@@ -246,6 +281,8 @@ public class Master {
 			}
 		}
 		
+		SLock.unlock();
+		
 		return results;
 	}
 	
@@ -257,15 +294,19 @@ public class Master {
 	 */
 	public int CreateFile(String tgtdir, String filename)
 	{
+		XLock.lock();
+		
 		// Check if the specified directory exists
 		if(!namespace.contains(tgtdir))
 		{
+			XLock.unlock();
 			return -1;
 		}
 		
 		// Check if the filename already exists in that directory
 		if(HasFilepath(tgtdir+filename))
 		{
+			XLock.unlock();
 			return -2;
 		}
 		
@@ -276,7 +317,7 @@ public class Master {
 		// Add filehandle to filespace
 		filespace.add(fh);
 		
-		// TODO: Write to log
+		// Write to log
 		BufferedWriter out = null;
 		try {
 			// The true at the end is so that we just add to the end of the log
@@ -288,6 +329,8 @@ public class Master {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+		
+		XLock.unlock();
 		
 		// Increment ticks
 		Tick();
@@ -304,15 +347,19 @@ public class Master {
 	 */
 	public int DeleteFile(String tgtdir, String filename)
 	{
+		XLock.lock();
+		
 		// Check if the specified directory exists
 		if(!namespace.contains(tgtdir))
 		{
+			XLock.unlock();
 			return -1;
 		}
 		
 		// Check if the filename exists
 		if(!HasFilepath(tgtdir+filename))
 		{
+			XLock.unlock();
 			return -2;
 		}
 		
@@ -321,7 +368,7 @@ public class Master {
 		FileHandle fh = new FileHandle(filepath, new Vector<String>());
 		filespace.remove(fh);
 		
-		// TODO: Write to log
+		// Write to log
 		BufferedWriter out = null;
 		try {
 			// The true at the end is so that we just add to the end of the log
@@ -333,6 +380,8 @@ public class Master {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+		
+		XLock.unlock();
 		
 		// Increment Ticks
 		Tick();
@@ -348,13 +397,18 @@ public class Master {
 	 */
 	public FileHandle OpenFile(String FilePath)
 	{
+		SLock.lock();
+		
 		for(FileHandle fh : filespace)
 		{
 			if(fh.getFilepath().equals(FilePath))
 			{
+				SLock.unlock();
 				return fh;
 			}
 		}
+		
+		SLock.unlock();
 		
 		return null;
 	}
@@ -515,8 +569,6 @@ public class Master {
        File oldnamespace = new File(logPath+"namespace.txt");
        oldnamespace.delete();
        newNamespace.renameTo(oldnamespace);
-       
-       // TODO: Clear the log
 	}
 	
 	/**
@@ -566,8 +618,6 @@ public class Master {
        File oldfilespace = new File(logPath+"filespace.txt");
        oldfilespace.delete();
        newFilespace.renameTo(oldfilespace);
-       
-       // TODO: Clear the log
 	}
 	
 	/**
@@ -620,8 +670,6 @@ public class Master {
        File oldchunkspace = new File(logPath+"chunkspace.txt");
        oldchunkspace.delete();
        newChunkspace.renameTo(oldchunkspace);
-       
-       // TODO: Clear the log
 	}
 	
 	/**
@@ -749,7 +797,7 @@ public class Master {
 		FileHandle fh = OpenFile(filePath);
 		fh.appendChunk(ChunkHandle);
 		
-		// TODO: Write to log
+		// Write to log
 		BufferedWriter out = null;
 		try {
 			// The true at the end is so that we just add to the end of the log
@@ -786,7 +834,7 @@ public class Master {
 	public void AddChunkHandleToChunkServer(int chunkServer, String ChunkHandle) {
 		chunkServerChunks.get(chunkServer).add(ChunkHandle);
 		
-		// TODO: Write to log
+		// Write to log
 		BufferedWriter out = null;
 		try {
 			// The true at the end is so that we just add to the end of the log
@@ -834,8 +882,6 @@ public class Master {
 					writer = new BufferedWriter(new FileWriter("MasterPort.txt"));
 					String ip = ss.getInetAddress().getLocalHost().toString();
 					writer.write("" + ip.substring(9)+ "\n");
-					// TODO: Change this back
-//					writer.write("" + ip.substring(30)+ "\n");
 					writer.write(""+port);
 				    writer.close();
 				} catch (IOException e1) {
