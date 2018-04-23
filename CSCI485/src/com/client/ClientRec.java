@@ -34,7 +34,7 @@ public class ClientRec {
 	private ObjectInputStream msOis;
 	private ObjectOutputStream msOos; 
 	
-	public static ChunkServer cs = new ChunkServer();
+//	public static ChunkServer cs = new ChunkServer();
 	
 	private Vector<Location> locations; 
 	
@@ -519,11 +519,16 @@ public class ClientRec {
 				oos.writeObject(iarm);
 				oos.flush();
 				
+				// Wait for the response
+				Object o = ois.readObject();
+				
 				// Reset both streams
 				oos.reset();
 			} catch (IOException ioe) {
 				System.out.println("ioe in clientRec: "+ioe.getMessage());
-			} 
+			} catch (ClassNotFoundException cnfe) {
+				System.out.println("In ClientRec CommunicateAppendToCS " + cnfe.getMessage());
+			}
 		}
 		return arm.getRids(); 
 	}
