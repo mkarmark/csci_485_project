@@ -469,11 +469,16 @@ public class ClientRec {
 				oos.writeObject(iicm);
 				oos.flush();
 				
+				// Wait for the response
+				Object o = ois.readObject();
+				
 				// Reset both streams
 				oos.reset();
 			} catch (IOException ioe) {
 				System.out.println("ioe in clientRec: "+ioe.getMessage());
-			} 
+			} catch (ClassNotFoundException cnfe) {
+				System.out.println("cnfe " + cnfe.getMessage());
+			}
 		}
 		
 		return icm.getChunkHandle(); 
